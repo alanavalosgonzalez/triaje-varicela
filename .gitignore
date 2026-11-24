@@ -1,0 +1,39 @@
+# Archivos que Git debe ignorar para no subirlos a GitHub.
+
+# Entorno virtual de Python.
+.venv/
+venv/
+
+# Caché y compilados de Python.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Secretos y claves de API (nunca deben subirse).
+.env
+
+# Base de datos local con datos de salud de usuarios.
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
+# Imágenes cargadas por usuarios.
+data/imagenes/
+
+# Pesos de modelos (son pesados; se distribuyen aparte).
+models/*.onnx
+models/*.pt
+models/*.pth
+
+# Datasets de entrenamiento.
+datasets/
+
+# Archivos del sistema y del editor.
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Historial de R.
+.Rhistory
+.RData

@@ -1,0 +1,30 @@
+# Dependencias de la aplicación de escritorio Triaje Varicela.
+# Instalar con: pip install -r requirements.txt (dentro del entorno virtual).
+# Requiere además, fuera de pip: SWI-Prolog 9.x y R 4.x instalados y en el PATH.
+
+# --- Interfaz gráfica (Qt 6) y visor web embebido para el mapa. ---
+PySide6>=6.8
+
+# --- Puente con el motor de inferencia lógica SWI-Prolog. ---
+pyswip>=0.3.2
+
+# --- Manejo de datos y cálculo numérico. ---
+numpy>=2.1
+pandas>=2.2
+
+# --- Visión artificial: lectura de imágenes e inferencia con el modelo exportado a ONNX. ---
+Pillow>=11.0
+onnxruntime>=1.20
+
+# --- Mapa y geolocalización con OpenStreetMap. ---
+folium>=0.18
+geopy>=2.4
+requests>=2.32
+
+# --- Configuración y secretos desde un archivo .env. ---
+python-dotenv>=1.0
+
+# --- Pruebas automatizadas. ---
+pytest>=8.3
+
+# Nota: el SDK del modelo de lenguaje se agregará en la Fase 3, al elegir proveedor.

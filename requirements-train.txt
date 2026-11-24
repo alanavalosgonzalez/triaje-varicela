@@ -1,0 +1,8 @@
+# Dependencias solo para ENTRENAR el modelo de visión (no las necesita la app).
+# Se separan porque PyTorch pesa varios GB y la app solo usa el modelo exportado a ONNX.
+-r requirements.txt
+torch>=2.5
+torchvision>=0.20
+timm>=1.0
+scikit-learn>=1.5
+onnx>=1.17
