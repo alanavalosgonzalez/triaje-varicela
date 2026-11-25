@@ -39,6 +39,10 @@ pi <- calcular_probabilidad(incierto)
 probar("las respuestas NA ensanchan el intervalo",
        (pi$ic_superior - pi$ic_inferior) > (p$ic_superior - p$ic_inferior))
 
+# Sin ningún síntoma del perfil típico el cálculo no debe fallar.
+probar("funciona sin síntomas del perfil",
+       is.numeric(calcular_probabilidad(list(dificultad_respiratoria = 1))$probabilidad))
+
 # El inmunocompromiso o un signo de alarma elevan el riesgo a ALTO.
 probar("inmunocompromiso da riesgo ALTO",
        riesgo_ponderado(list(inmunocompromiso = 1, edad = 30))$nivel == "ALTO")

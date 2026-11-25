@@ -5,8 +5,7 @@
 # --- Interfaz gráfica (Qt 6) y visor web embebido para el mapa. ---
 PySide6>=6.8
 
-# --- Puente con el motor de inferencia lógica SWI-Prolog. ---
-pyswip>=0.3.2
+# Nota: Prolog y R se ejecutan como procesos (swipl y Rscript), así que no necesitan paquetes de pip.
 
 # --- Manejo de datos y cálculo numérico. ---
 numpy>=2.1

@@ -8,7 +8,7 @@ Aplicación de escritorio en Python que orquesta cuatro motores especializados. 
 flowchart TB
     UI["Interfaz PySide6<br/>(Triaje · Chat · Imagen · Info · Mapa)"]
     ORQ["Orquestador de diagnóstico<br/>app/core"]
-    PL["Motor lógico<br/>SWI-Prolog (pyswip)"]
+    PL["Motor lógico<br/>SWI-Prolog (swipl + JSON)"]
     R["Motor estadístico<br/>R (Rscript + JSON)"]
     LLM["Asistente IA<br/>LLM con system prompt clínico"]
     VIS["Visión artificial<br/>CNN/ViT en ONNX"]
@@ -30,7 +30,7 @@ flowchart TB
 | Componente | Tecnología | Por qué |
 |---|---|---|
 | Interfaz | **PySide6 (Qt 6)** | Aspecto profesional, tablas y formularios robustos, y `QWebEngineView` para mostrar el mapa Folium dentro de la app. Licencia LGPL. |
-| Motor lógico | **SWI-Prolog + pyswip** | Las reglas médicas (fases, diagnóstico diferencial, signos de alarma) se expresan de forma declarativa y explicable: se puede mostrar *qué regla* produjo el dictamen. |
+| Motor lógico | **SWI-Prolog vía `swipl` + JSON** | Las reglas médicas (fases, diagnóstico diferencial, signos de alarma) se expresan de forma declarativa y explicable: se puede mostrar *qué regla* produjo el dictamen. Se ejecuta como proceso (`prolog/cli.pl`) en lugar de `pyswip`, que en Windows suele fallar al localizar las librerías de SWI-Prolog. |
 | Motor estadístico | **R vía `Rscript` + JSON** | Se prefiere a `rpy2` porque en Windows `rpy2` es frágil de instalar. Python envía un JSON por la entrada estándar y R responde otro JSON con probabilidad, intervalo de confianza y riesgo ponderado. Cada lado se puede probar por separado. |
 | Base de datos | **SQLite** | Ver sección 3. |
 | Asistente IA | LLM detrás de una interfaz `ProveedorLLM` | El proveedor se elige en la Fase 3; la app no depende de uno concreto. El **filtro de seguridad** (signos de alarma, ambigüedad) se ejecuta en Python *antes y después* del LLM, no se deja solo al modelo. |
