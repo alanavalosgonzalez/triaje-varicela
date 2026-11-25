@@ -106,5 +106,106 @@ class PruebasAsistente(unittest.TestCase):
         self.assertEqual(len(proveedor.llamadas[1]), 3)
 
 
+class ErrorApiFalso(Exception):
+    """Imita un error de la API de Gemini con su código HTTP."""
+
+    def __init__(self, code: int):
+        """Guarda el código, como hace el SDK."""
+        super().__init__(f"error {code}")
+        self.code = code
+
+
+class ClienteFalso:
+    """Imita genai.Client: cada llamada consume la siguiente acción de la lista (un error o un texto)."""
+
+    def __init__(self, acciones: list):
+        """Guarda las acciones y registra qué modelo se pidió en cada llamada."""
+        self.acciones, self.modelos_llamados = list(acciones), []
+        self.models = self
+
+    def generate_content(self, model, contents, config):
+        """Lanza el error o devuelve un objeto con .text."""
+        self.modelos_llamados.append(model)
+        accion = self.acciones.pop(0)
+        if isinstance(accion, Exception):
+            raise accion
+        return type("Respuesta", (), {"text": accion})()
+
+
+class TimeoutFalso(Exception):
+    """Imita el error de tiempo agotado de la conexión (sin código HTTP)."""
+
+
+class PruebasReintentosGemini(unittest.TestCase):
+    """Comprueba los reintentos ante saturación, el tiempo límite y el paso a modelos de respaldo."""
+
+    def proveedor(self, acciones: list, respaldo=("respaldo",)):
+        """Crea un ProveedorGemini con un cliente falso, sin red ni espera real."""
+        from google.genai import types
+
+        from app.ai.proveedores import ProveedorGemini
+
+        p = object.__new__(ProveedorGemini)
+        p._types, p._cliente, p._temperatura = types, ClienteFalso(acciones), 0.3
+        p.nombre_modelo, p.modelos_respaldo, p.modelo_usado = "principal", list(respaldo), "principal"
+        p._pausados, p._sin_razonamiento = {}, set()
+        p.ahora = 1000.0
+        p._reloj = lambda: p.ahora
+        p.esperas = []
+        p._esperar = p.esperas.append
+        return p
+
+    def responder(self, p):
+        """Envía un mensaje de prueba."""
+        return p.responder("sistema", [Mensaje("usuario", "hola")])
+
+    def test_reintenta_y_responde(self):
+        """Un 503 y luego éxito: responde el modelo principal tras esperar 1 segundo."""
+        p = self.proveedor([ErrorApiFalso(503), "Hola"])
+        self.assertEqual(self.responder(p), "Hola")
+        self.assertEqual((p.modelo_usado, p.esperas), ("principal", [1]))
+
+    def test_pasa_al_modelo_de_respaldo(self):
+        """Si el principal falla en sus dos intentos, responde el modelo de respaldo."""
+        p = self.proveedor([ErrorApiFalso(503)] * 2 + ["Respuesta de respaldo"])
+        self.assertEqual(self.responder(p), "Respuesta de respaldo")
+        self.assertEqual(p.modelo_usado, "respaldo")
+
+    def test_tiempo_agotado_pasa_directo_al_respaldo(self):
+        """Si el principal no responde a tiempo, no se le vuelve a esperar: se pasa al respaldo de inmediato."""
+        p = self.proveedor([TimeoutFalso("lento"), "Rápido"])
+        self.assertEqual(self.responder(p), "Rápido")
+        self.assertEqual(p._cliente.modelos_llamados, ["principal", "respaldo"])
+
+    def test_modelo_saturado_se_salta_un_tiempo(self):
+        """Tras fallar, el principal se deja al final durante la pausa y se vuelve a probar cuando termina."""
+        from app.ai.proveedores import PAUSA_MODELO_SATURADO
+
+        p = self.proveedor([ErrorApiFalso(503), ErrorApiFalso(503), "uno", "dos", "tres"])
+        self.responder(p)
+        self.responder(p)  # Durante la pausa empieza directamente por el respaldo.
+        self.assertEqual(p._cliente.modelos_llamados, ["principal", "principal", "respaldo", "respaldo"])
+        p.ahora += PAUSA_MODELO_SATURADO + 1
+        self.responder(p)  # Pasada la pausa, se vuelve a intentar con el principal.
+        self.assertEqual(p._cliente.modelos_llamados[-1], "principal")
+
+    def test_modelo_sin_nivel_de_razonamiento(self):
+        """Si un modelo rechaza el nivel de razonamiento (400), se repite sin él y se recuerda."""
+        error = ErrorApiFalso(400)
+        error.args = ("400 INVALID_ARGUMENT: Thinking level is not supported",)
+        p = self.proveedor([error, "Sin razonamiento"])
+        self.assertEqual(self.responder(p), "Sin razonamiento")
+        self.assertIn("principal", p._sin_razonamiento)
+
+    def test_error_no_temporal_no_se_reintenta(self):
+        """Un error como clave inválida (400) se informa de inmediato, sin reintentos."""
+        from app.ai.proveedores import ErrorProveedor
+
+        p = self.proveedor([ErrorApiFalso(400)])
+        with self.assertRaises(ErrorProveedor):
+            self.responder(p)
+        self.assertEqual(p._cliente.modelos_llamados, ["principal"])
+
+
 if __name__ == "__main__":
     unittest.main()

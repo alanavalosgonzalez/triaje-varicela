@@ -2,6 +2,9 @@
 
 import html
 
+import time
+
+from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QPushButton, QTextBrowser, QVBoxLayout, QWidget
 
 from app.ai.asistente import AsistenteMedico
@@ -17,6 +20,8 @@ SALUDO = ("Hola, soy el asistente médico virtual. Cuéntame qué síntomas tien
 
 class PaginaChat(QWidget):
     """Muestra la conversación; el modelo responde en segundo plano y los mensajes se guardan en la base."""
+
+    solicitar_clave = Signal()  # Se emite cuando falta la clave de Gemini, para abrir la ventana de configuración.
 
     def __init__(self, sesion: Sesion):
         """Construye el historial, el campo de texto y conecta el contexto del triaje."""
@@ -39,6 +44,11 @@ class PaginaChat(QWidget):
         fila.addWidget(self.boton)
         layout.addLayout(fila)
 
+        # Contador visible mientras se espera la respuesta, para que se note que la app sigue trabajando.
+        self._inicio_espera = 0.0
+        self._contador = QTimer(self)
+        self._contador.setInterval(1000)
+        self._contador.timeout.connect(self._actualizar_espera)
         self.campo.returnPressed.connect(self._enviar)
         self.boton.clicked.connect(self._enviar)
         sesion.triaje_completado.connect(self._usar_contexto)
@@ -62,6 +72,15 @@ class PaginaChat(QWidget):
         asistente = AsistenteMedico(ProveedorGemini(), triaje=self.sesion.ultimo_triaje)
         return asistente
 
+    def reiniciar_asistente(self) -> None:
+        """Usa la clave recién configurada conservando la conversación: solo se reemplaza la conexión con Gemini."""
+        if self.asistente is None:
+            return  # Se creará con la clave nueva en el próximo mensaje.
+        try:
+            self.asistente.proveedor = ProveedorGemini()
+        except ErrorProveedor:
+            self.asistente = None  # Si la clave nueva no sirve, el próximo mensaje lo explicará.
+
     def _usar_contexto(self, resultado) -> None:
         """Cuando se completa un triaje, el asistente lo toma en cuenta en los siguientes mensajes."""
         if self.asistente is not None:
@@ -77,35 +96,55 @@ class PaginaChat(QWidget):
             try:
                 self.asistente = self._crear_asistente()
             except ErrorProveedor as error:
-                self._agregar("asistente", f"No puedo conectarme con el modelo de lenguaje: {error}", alerta=True)
+                if "GEMINI_API_KEY" in str(error):
+                    self._agregar("asistente", "Para usar el asistente necesitas configurar tu clave de Gemini. "
+                                  "Se abrirá la ventana de configuración; después vuelve a enviar tu mensaje.", alerta=True)
+                    self.solicitar_clave.emit()
+                else:
+                    self._agregar("asistente", f"No puedo conectarme con el modelo de lenguaje: {error}", alerta=True)
                 return
         self.campo.clear()
         self._agregar("usuario", texto)
         repositorio.guardar_mensaje(self.sesion.conexion, self.sesion.asegurar_consulta(), "usuario", texto)
         self.boton.setEnabled(False)
-        self.campo.setPlaceholderText("El asistente está escribiendo…")
-        ejecutar(self.asistente.enviar, self._recibir, self._fallo, texto)
+        self._inicio_espera = time.monotonic()
+        self._actualizar_espera()
+        self._contador.start()
+        # Se guardan el asistente y su proveedor de ESTE mensaje: si mientras tanto se cambia la clave y se reinicia
+        # el asistente, la respuesta en camino sigue teniendo a quién referirse.
+        asistente, proveedor = self.asistente, self.asistente.proveedor
+        ejecutar(asistente.enviar,
+                 lambda respuesta: self._recibir(respuesta, proveedor),
+                 lambda mensaje: self._fallo(mensaje, asistente),
+                 texto)
 
-    def _recibir(self, respuesta) -> None:
+    def _recibir(self, respuesta, proveedor) -> None:
         """Muestra y guarda la respuesta; si hubo urgencia o duda, activa la derivación al médico."""
         self._listo()
         self._agregar("asistente", respuesta.texto, alerta=respuesta.derivar)
-        modelo = "filtro_seguridad" if respuesta.urgencia else self.asistente.proveedor.nombre_modelo
+        modelo = "filtro_seguridad" if respuesta.urgencia else getattr(proveedor, "modelo_usado", proveedor.nombre_modelo)
         repositorio.guardar_mensaje(self.sesion.conexion, self.sesion.asegurar_consulta(), "asistente",
                                     respuesta.texto, respuesta.derivar, modelo)
         if respuesta.derivar:
             self.sesion.activar_derivacion("CHAT")
 
-    def _fallo(self, mensaje: str) -> None:
+    def _fallo(self, mensaje: str, asistente: AsistenteMedico) -> None:
         """Informa del error de red o de la API sin cerrar la conversación."""
         self._listo()
         # El historial del asistente ya incluye el mensaje del usuario sin respuesta; se quita para poder reenviarlo.
-        if self.asistente.historial and self.asistente.historial[-1].rol == "usuario":
-            self.asistente.historial.pop()
+        if asistente.historial and asistente.historial[-1].rol == "usuario":
+            asistente.historial.pop()
         self._agregar("asistente", f"No pude responder: {mensaje}. Intenta de nuevo en un momento.", alerta=True)
+
+    def _actualizar_espera(self) -> None:
+        """Muestra cuántos segundos lleva esperando la respuesta."""
+        segundos = int(time.monotonic() - self._inicio_espera)
+        aviso = " (el servicio está lento, probando otro modelo…)" if segundos >= 15 else ""
+        self.campo.setPlaceholderText(f"El asistente está escribiendo… {segundos} s{aviso}")
 
     def _listo(self) -> None:
         """Vuelve a habilitar el envío."""
+        self._contador.stop()
         self.boton.setEnabled(True)
         self.campo.setPlaceholderText("Escribe tu mensaje y pulsa Enter…")
         self.campo.setFocus()

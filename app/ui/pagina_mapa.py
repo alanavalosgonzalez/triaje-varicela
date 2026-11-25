@@ -20,7 +20,12 @@ AVISO_IP = ("Para estimar tu ubicación se enviará tu dirección IP a un servic
 
 def buscar(modo: str, texto: str):
     """Obtiene la ubicación (por dirección o por IP) y los centros cercanos; se ejecuta en segundo plano."""
-    lugar = geo_ubicacion.desde_ip() if modo == "ip" else geo_ubicacion.desde_direccion(texto)
+    if modo == "windows":
+        lugar = geo_ubicacion.desde_windows()
+    elif modo == "ip":
+        lugar = geo_ubicacion.desde_ip()
+    else:
+        lugar = geo_ubicacion.desde_direccion(texto)
     return lugar, buscar_centros(lugar.latitud, lugar.longitud)
 
 
@@ -34,17 +39,19 @@ class PaginaMapa(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 20)
         layout.addWidget(etiqueta("Centros de salud cercanos", "titulo"))
-        self.nota = etiqueta("Escribe tu dirección o colonia y ciudad para ver hospitales, clínicas y consultorios "
-                             "cercanos. En una emergencia llama al número de emergencias de tu país (en México, 911).", "nota")
+        self.nota = etiqueta("Usa la ubicación de tu equipo o escribe tu dirección para ver hospitales, clínicas y "
+                             "consultorios cercanos. En una emergencia llama al número de emergencias de tu país (en México, 911).", "nota")
         layout.addWidget(self.nota)
         fila = QHBoxLayout()
         self.campo = QLineEdit()
         self.campo.setPlaceholderText("Ej.: Av. Juárez 10, Centro, Ciudad de México")
-        self.boton_buscar = QPushButton("Buscar")
-        self.boton_ip = QPushButton("Usar ubicación aproximada")
+        self.boton_buscar = QPushButton("Buscar dirección")
+        self.boton_windows = QPushButton("Usar mi ubicación")
+        self.boton_ip = QPushButton("Aproximada (por internet)")
         self.boton_ip.setObjectName("secundario")
         fila.addWidget(self.campo, 1)
         fila.addWidget(self.boton_buscar)
+        fila.addWidget(self.boton_windows)
         fila.addWidget(self.boton_ip)
         layout.addLayout(fila)
 
@@ -65,6 +72,7 @@ class PaginaMapa(QWidget):
         self.campo.returnPressed.connect(lambda: self._buscar("direccion"))
         self.boton_buscar.clicked.connect(lambda: self._buscar("direccion"))
         self.boton_ip.clicked.connect(lambda: self._buscar("ip"))
+        self.boton_windows.clicked.connect(lambda: self._buscar("windows"))
 
     def _buscar(self, modo: str) -> None:
         """Valida la entrada, pide consentimiento para la IP y lanza la búsqueda en segundo plano."""
@@ -74,9 +82,8 @@ class PaginaMapa(QWidget):
             return
         if modo == "ip" and QMessageBox.question(self, "Ubicación aproximada", AVISO_IP) != QMessageBox.Yes:
             return
-        self.boton_buscar.setEnabled(False)
-        self.boton_ip.setEnabled(False)
-        self.nota.setText("Buscando centros de salud en OpenStreetMap…")
+        self._habilitar(False)
+        self.nota.setText("Obteniendo tu ubicación…" if modo == "windows" else "Buscando centros de salud en OpenStreetMap…")
         ejecutar(buscar, self._mostrar, self._fallo, modo, texto)
 
     def _fallo(self, mensaje: str) -> None:
@@ -104,5 +111,9 @@ class PaginaMapa(QWidget):
 
     def _listo(self) -> None:
         """Vuelve a habilitar los botones de búsqueda."""
-        self.boton_buscar.setEnabled(True)
-        self.boton_ip.setEnabled(True)
+        self._habilitar(True)
+
+    def _habilitar(self, activo: bool) -> None:
+        """Activa o desactiva los tres botones de búsqueda a la vez."""
+        for boton in (self.boton_buscar, self.boton_windows, self.boton_ip):
+            boton.setEnabled(activo)
