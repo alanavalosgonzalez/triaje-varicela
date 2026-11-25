@@ -2,13 +2,14 @@
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QStackedWidget,
+    QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QStackedWidget,
     QVBoxLayout, QWidget,
 )
 
 from app.core import diagnostico
 from app.ui import estilos
 from app.ui.comun import Sesion
+from app.ui.dialogo_clave import DialogoClave
 from app.ui.pagina_chat import PaginaChat
 from app.ui.pagina_historial import PaginaHistorial
 from app.ui.pagina_imagen import PaginaImagen
@@ -45,6 +46,11 @@ class VentanaPrincipal(QMainWindow):
         capa_encabezado.addWidget(titulo)
         capa_encabezado.addStretch()
         capa_encabezado.addWidget(QLabel("Pre-diagnóstico y orientación"))
+        boton_config = QPushButton("Configurar asistente")
+        boton_config.setObjectName("encabezado")
+        boton_config.clicked.connect(self.configurar_clave)
+        capa_encabezado.addSpacing(16)
+        capa_encabezado.addWidget(boton_config)
         raiz.addWidget(encabezado)
 
         aviso = QLabel(AVISO_MEDICO)
@@ -60,9 +66,10 @@ class VentanaPrincipal(QMainWindow):
         self.paginas = QStackedWidget()
         self.pagina_triaje = PaginaTriaje(self.sesion)
         self.pagina_mapa = PaginaMapa(self.sesion)
+        self.pagina_chat = PaginaChat(self.sesion)
         for nombre, pagina in [
             ("Cuestionario de triaje", self.pagina_triaje),
-            ("Asistente virtual", PaginaChat(self.sesion)),
+            ("Asistente virtual", self.pagina_chat),
             ("Análisis de imagen", PaginaImagen(self.sesion)),
             ("Centro Informativo", PaginaInfo(self.sesion)),
             ("Centros cercanos", self.pagina_mapa),
@@ -84,18 +91,26 @@ class VentanaPrincipal(QMainWindow):
         self.menu.setCurrentRow(0)
         self.pagina_triaje.ver_mapa.connect(lambda: self.menu.setCurrentRow(4))
         self.sesion.derivacion.connect(self._habilitar_mapa)
+        self.pagina_chat.solicitar_clave.connect(self.configurar_clave)
         self.statusBar().showMessage("Datos guardados solo en este equipo.")
+        self.indicador = QLabel()
+        self.statusBar().addPermanentWidget(self.indicador)
         self._mostrar_diagnostico()
 
     def _mostrar_diagnostico(self) -> None:
         """Muestra en la barra inferior qué componentes están disponibles; el detalle aparece al pasar el mouse."""
         componentes = diagnostico.revisar()
-        texto = "   ".join(f"{'✓' if c.disponible else '✗'} {c.nombre}" for c in componentes)
-        indicador = QLabel(texto)
-        indicador.setToolTip("\n".join(f"{c.nombre}: {c.detalle}" for c in componentes))
-        if not all(c.disponible for c in componentes):
-            indicador.setStyleSheet(f"color: {estilos.AMBAR}; font-weight: 600;")
-        self.statusBar().addPermanentWidget(indicador)
+        self.indicador.setText("   ".join(f"{'✓' if c.disponible else '✗'} {c.nombre}" for c in componentes))
+        self.indicador.setToolTip("\n".join(f"{c.nombre}: {c.detalle}" for c in componentes))
+        completo = all(c.disponible for c in componentes)
+        self.indicador.setStyleSheet("" if completo else f"color: {estilos.AMBAR}; font-weight: 600;")
+
+    def configurar_clave(self) -> None:
+        """Abre la ventana de la clave de Gemini y, si se guardó, reinicia el asistente con la clave nueva."""
+        if DialogoClave(self).exec():
+            self.pagina_chat.reiniciar_asistente()
+            self._mostrar_diagnostico()
+            self.statusBar().showMessage("Clave de Gemini guardada. El asistente virtual está listo.", 6000)
 
     def _habilitar_mapa(self, origen: str) -> None:
         """Desbloquea el mapa y avisa una sola vez de forma visible."""

@@ -1,0 +1,187 @@
+{
+  "arquitectura": "convnext_tiny.fb_in22k_ft_in1k",
+  "dataset_extra": "datasets/msid_limpio",
+  "epocas": 25,
+  "lr": "1e-3",
+  "lr_base": "1e-4",
+  "exactitud_balanceada": 0.7891064653503679,
+  "pliegues": 5,
+  "imagenes_prueba_totales": 364,
+  "varicelas_prueba_totales": 42,
+  "exactitud_global": 0.804945054945055,
+  "sensibilidad_varicela": {
+    "media": 0.5425685425685426,
+    "desviacion": 0.17166987355928676,
+    "por_pliegue": [
+      0.6666666666666666,
+      0.36363636363636365,
+      0.3333333333333333,
+      0.7777777777777778,
+      0.5714285714285714
+    ]
+  },
+  "especificidad_varicela": {
+    "media": 0.9418796302720537,
+    "desviacion": 0.03579718649499617,
+    "por_pliegue": [
+      1.0,
+      0.9436619718309859,
+      0.9482758620689655,
+      0.8888888888888888,
+      0.9285714285714286
+    ]
+  },
+  "reporte_combinado": {
+    "mano_pie_boca": {
+      "precision": 0.8636363636363636,
+      "recall": 0.926829268292683,
+      "f1-score": 0.8941176470588236,
+      "support": 82.0
+    },
+    "mpox": {
+      "precision": 0.8032786885245902,
+      "recall": 0.784,
+      "f1-score": 0.7935222672064778,
+      "support": 125.0
+    },
+    "sana": {
+      "precision": 0.9574468085106383,
+      "recall": 0.9,
+      "f1-score": 0.9278350515463918,
+      "support": 50.0
+    },
+    "sarampion": {
+      "precision": 0.8333333333333334,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.8333333333333334,
+      "support": 30.0
+    },
+    "varicela": {
+      "precision": 0.5476190476190477,
+      "recall": 0.5476190476190477,
+      "f1-score": 0.5476190476190477,
+      "support": 42.0
+    },
+    "viruela_bovina": {
+      "precision": 0.7428571428571429,
+      "recall": 0.7428571428571429,
+      "f1-score": 0.7428571428571429,
+      "support": 35.0
+    },
+    "accuracy": 0.804945054945055,
+    "macro avg": {
+      "precision": 0.7913618974135194,
+      "recall": 0.7891064653503679,
+      "f1-score": 0.7898807482702028,
+      "support": 364.0
+    },
+    "weighted avg": {
+      "precision": 0.8052207645859547,
+      "recall": 0.804945054945055,
+      "f1-score": 0.8046694588927277,
+      "support": 364.0
+    }
+  },
+  "matriz_confusion_combinada": [
+    [
+      76,
+      2,
+      0,
+      2,
+      2,
+      0
+    ],
+    [
+      3,
+      98,
+      2,
+      2,
+      15,
+      5
+    ],
+    [
+      4,
+      0,
+      45,
+      1,
+      0,
+      0
+    ],
+    [
+      1,
+      3,
+      0,
+      25,
+      1,
+      0
+    ],
+    [
+      3,
+      12,
+      0,
+      0,
+      23,
+      4
+    ],
+    [
+      1,
+      7,
+      0,
+      0,
+      1,
+      26
+    ]
+  ],
+  "clases": [
+    "mano_pie_boca",
+    "mpox",
+    "sana",
+    "sarampion",
+    "varicela",
+    "viruela_bovina"
+  ],
+  "efecto_umbral": [
+    {
+      "umbral": 0.5,
+      "indeterminadas": 0.07692307692307687,
+      "sensibilidad": 0.5263157894736842,
+      "especificidad": 0.9463087248322147,
+      "varicelas_decididas": 38
+    },
+    {
+      "umbral": 0.6,
+      "indeterminadas": 0.14835164835164838,
+      "sensibilidad": 0.5294117647058824,
+      "especificidad": 0.9456521739130435,
+      "varicelas_decididas": 34
+    },
+    {
+      "umbral": 0.7,
+      "indeterminadas": 0.21703296703296704,
+      "sensibilidad": 0.5454545454545454,
+      "especificidad": 0.9682539682539683,
+      "varicelas_decididas": 33
+    },
+    {
+      "umbral": 0.8,
+      "indeterminadas": 0.34615384615384615,
+      "sensibilidad": 0.5806451612903226,
+      "especificidad": 0.9758454106280193,
+      "varicelas_decididas": 31
+    },
+    {
+      "umbral": 0.85,
+      "indeterminadas": 0.4285714285714286,
+      "sensibilidad": 0.6296296296296297,
+      "especificidad": 0.9723756906077348,
+      "varicelas_decididas": 27
+    },
+    {
+      "umbral": 0.9,
+      "indeterminadas": 0.5714285714285714,
+      "sensibilidad": 0.7894736842105263,
+      "especificidad": 0.9854014598540146,
+      "varicelas_decididas": 19
+    }
+  ]
+}

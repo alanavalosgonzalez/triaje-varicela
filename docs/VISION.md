@@ -33,14 +33,14 @@ La app solo afirma "compatible" o "no compatible" si la confianza calibrada supe
 | Umbral | Fotos indeterminadas | Sensibilidad* | Especificidad* |
 |---|---|---|---|
 | 0.50 | 12 % | 64 % | 96 % |
-| 0.60 | 21 % | 69 % | 97 % |
-| **0.70 (elegido)** | **32 %** | **75 %** | **97 %** |
+| **0.60 (elegido)** | **21 %** | **69 %** | **97 %** |
+| 0.70 | 32 % | 75 % | 97 % |
 | 0.80 | 44 % | 83 % | 98 % |
 | 0.90 | 60 % | 95 % | 98 % |
 
 \* Calculadas solo sobre las fotos en las que el modelo sí decide.
 
-Se eligió **0.70** como equilibrio: el modelo decide en 2 de cada 3 fotos con una especificidad del 97 %.
+Primero se usó 0.70, pero en las pruebas de uso el modelo respondía "no concluyente" con demasiada frecuencia. Se bajó a **0.60** (versión 1.1 de los metadatos): el modelo decide en 4 de cada 5 fotos y la especificidad se mantiene en 97 %, a cambio de algo menos de sensibilidad (69 % frente a 75 %).
 
 ## Matriz de confusión combinada (filas = clase real, columnas = predicción)
 
@@ -55,14 +55,47 @@ Se eligió **0.70** como equilibrio: el modelo decide en 2 de cada 3 fotos con u
 
 La confusión principal es **varicela ↔ mpox**, esperable porque ambas producen vesículas muy parecidas.
 
-## Modelo final
+## Modelo final (versión 1.2)
 
-- Entrenado con el pliegue 1 (537 fotos de entrenamiento y 144 de validación); en sus 74 fotos de prueba: exactitud 73 %, sensibilidad para varicela 78 % y especificidad 95 %.
-- **Cuantizado a 8 bits** (`entrenamiento/cuantizar.py`): pasa de 111 MB a **28 MB**, coincide con el original en 69 de 74 fotos y mantiene la sensibilidad y especificidad en las fotos decididas. Tarda unos 140 ms por foto solo con el procesador.
+- **v1.1:** entrenado con el pliegue 1 (537 fotos); en sus 74 fotos de prueba, nunca vistas: exactitud 73 %, sensibilidad para varicela 78 % y especificidad 95 %.
+- **v1.2 (el publicado):** mismo método, pero se sumaron al entrenamiento las 74 fotos de prueba (611 en total), porque el rendimiento ya se había estimado con la validación cruzada. Por eso **su evaluación independiente es la validación cruzada**, no esas fotos.
+- **Cuantizado a 8 bits** (`entrenamiento/cuantizar.py`): pasa de 111 MB a **28 MB** con las mismas predicciones. Tarda unos 140 ms por foto solo con el procesador.
+
+Comparación con las 144 fotos de validación, que ninguno de los dos modelos usó para aprender (umbral 0.60):
+
+| Modelo | No concluyente | Exactitud | Falsos positivos de varicela | Varicelas dichas "no compatible" |
+|---|---|---|---|---|
+| v1.1 | 35 % | 73 % | 9 | 0 de 16 |
+| **v1.2** | **22 %** | **81 %** | **6** | 3 de 16 (2 como mpox, 1 como mano-pie-boca) |
+
+### Regla de seguridad para otras enfermedades
+
+Los errores de v1.2 confunden la varicela con **otras enfermedades** (mpox, mano-pie-boca), nunca con piel sana. Como esas enfermedades también requieren atención médica, la app aplica esta regla: **si la foto parece varicela o cualquier otra enfermedad, recomienda consultar a un médico y habilita el mapa**. Con ella, de las 16 varicelas de validación, 11 terminan con la recomendación de ir al médico, 5 son "no concluyentes" (que también aconsejan confirmar con un médico) y **ninguna recibe "piel sana"**.
+
+### Probado y descartado: analizar también la foto en espejo
+
+Promediar el análisis de la foto original y en espejo (*test-time augmentation*, `entrenamiento/evaluar_tta.py`) redujo los no concluyentes en un conjunto (36 % → 32 %), los aumentó en otro (35 % → 40 %) y bajó la exactitud en ambos. Queda programado pero desactivado.
 
 ## Control de calidad de la foto
 
 Antes de analizarla se rechazan las fotos demasiado pequeñas, oscuras, sobreexpuestas o borrosas. Los límites se **calibraron con el propio dataset**, por debajo del percentil 1 de cada medida. Una primera versión, con límites puestos a ojo, rechazaba el 45 % de las fotos válidas por "borrosas", porque la piel es una superficie suave con pocos bordes. La nitidez se mide siempre sobre la foto reducida a 224 px, para que sea comparable entre resoluciones.
+
+## Experimento: agregar un segundo dataset (MSID)
+
+Para reducir los resultados no concluyentes se probó añadir el *Monkeypox Skin Images Dataset* (MSID) solo al entrenamiento.
+
+- 770 imágenes de 4 clases (varicela, sarampión, mpox, piel sana), descargadas de Mendeley Data con verificación SHA-256.
+- **Deduplicación con dHash** (`entrenamiento/deduplicar.py`): se quitaron **177 imágenes que ya estaban en MSLD** y 18 repetidas internas. Sin este paso, fotos de prueba habrían entrado al entrenamiento y las métricas saldrían infladas. Quedaron 575 (88 de varicela).
+- La evaluación siguió siendo con los mismos 5 pliegues de MSLD, para comparar de forma justa.
+
+| Entrenamiento | Exactitud | Sensibilidad varicela | Especificidad | Indeterminadas (umbral 0.70) | Sensibilidad decidida (0.70) |
+|---|---|---|---|---|---|
+| Solo MSLD | 79.4 % | **65.5 %** | 95.5 % | 32 % | **75 %** |
+| MSLD + MSID | 80.5 % | 54.3 % | 94.2 % | 22 % | 55 % |
+
+**Conclusión:** con MSID el modelo se vuelve *más seguro pero se equivoca más con la varicela*: deja menos fotos sin decidir, pero detecta peor los casos reales. Para el objetivo de la app es peor, así que **se descartó**. Bajar el umbral del modelo original a 0.60 logra la misma reducción de indeterminadas (21 %) con mejor sensibilidad (69 %). Una explicación probable es que las fotos de MSID tienen otro estilo (otras fuentes, encuadres y compresión) que confunde al modelo con tan pocos ejemplos.
+
+Cita: Bala, D. y Hossain, M. S. (2023). *Monkeypox Skin Images Dataset (MSID)*, versión 6. Mendeley Data. DOI [10.17632/r9bfpnvyxr.6](https://doi.org/10.17632/r9bfpnvyxr.6). Licencia CC BY 4.0.
 
 ## Limitaciones
 
@@ -78,5 +111,7 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 pip install -r requirements-train.txt
 python -m entrenamiento.preparar_msld "ruta\al\archive.zip"
 python -m entrenamiento.validacion_cruzada --epocas 25 --arquitectura convnext_tiny.fb_in22k_ft_in1k
-python -m entrenamiento.entrenar_vision --datos datasets/msld/fold1 --epocas 25 --arquitectura convnext_tiny.fb_in22k_ft_in1k --umbral 0.70
+python -m entrenamiento.entrenar_vision --datos datasets/msld/fold1 --epocas 25 --arquitectura convnext_tiny.fb_in22k_ft_in1k --umbral 0.60 --incluir-prueba --version vision-1.2.0
+python -m entrenamiento.cuantizar
+# Después: renombrar varicela.onnx -> varicela_fp32.onnx y varicela_int8.onnx -> varicela.onnx
 ```

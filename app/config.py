@@ -24,6 +24,23 @@ R_SCRIPT = RAIZ / "r_scripts" / "probabilidad.R"
 DB_PATH = RAIZ / os.getenv("DB_PATH", "data/triaje_varicela.db")
 
 
+ARCHIVO_ENV = RAIZ / ".env"
+
+
+def guardar_en_env(nombre: str, valor: str, archivo: Path = ARCHIVO_ENV) -> None:
+    """Guarda o reemplaza una variable en el archivo .env (conservando las demás líneas) y la activa en esta sesión."""
+    lineas = archivo.read_text(encoding="utf-8").splitlines() if archivo.exists() else []
+    nueva = f"{nombre}={valor}"
+    for i, linea in enumerate(lineas):
+        if linea.strip().startswith(f"{nombre}="):
+            lineas[i] = nueva
+            break
+    else:
+        lineas.append(nueva)
+    archivo.write_text("\n".join(lineas) + "\n", encoding="utf-8")
+    os.environ[nombre] = valor
+
+
 def _buscar_ejecutable(variable_entorno: str, nombre: str, patrones_windows: list[str]) -> str | None:
     """Busca un ejecutable: primero en la variable de entorno, luego en el PATH y al final en rutas típicas de Windows."""
     ruta = os.getenv(variable_entorno)

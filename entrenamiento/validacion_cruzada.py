@@ -45,29 +45,50 @@ def main() -> None:
     parser.add_argument("--arquitectura", default="efficientnet_b0")
     parser.add_argument("--lr", default="1e-3")
     parser.add_argument("--lr-base", default="1e-4")
+    parser.add_argument("--extra", default=None, help="Dataset adicional solo para entrenamiento.")
+    parser.add_argument("--sufijo", default="", help="Texto añadido al nombre del archivo de resultados.")
+    parser.add_argument("--semillas", type=int, default=1,
+                        help="Modelos por pliegue con distinta semilla; si es más de 1 se promedian (conjunto o ensemble).")
     args = parser.parse_args()
 
-    resultados = []
+    por_pliegue, clases = [], None
     for pliegue in sorted(p for p in args.carpeta.iterdir() if p.is_dir()):
-        print(f"\n{'=' * 30} {args.arquitectura} {pliegue.name} {'=' * 30}", flush=True)
-        argumentos = crear_parser().parse_args([
-            "--datos", str(pliegue), "--epocas", str(args.epocas), "--arquitectura", args.arquitectura,
-            "--lr", args.lr, "--lr-base", args.lr_base, "--no-exportar",
-        ])
-        resultados.append(entrenar(argumentos))
+        probabilidades_modelos = []
+        for semilla in range(42, 42 + args.semillas):
+            print(f"\n{'=' * 30} {args.arquitectura} {pliegue.name} semilla {semilla} {'=' * 30}", flush=True)
+            argumentos = crear_parser().parse_args([
+                "--datos", str(pliegue), "--epocas", str(args.epocas), "--arquitectura", args.arquitectura,
+                "--lr", args.lr, "--lr-base", args.lr_base, "--semilla", str(semilla), "--no-exportar",
+                *(["--extra", args.extra] if args.extra else []),
+            ])
+            resultado = entrenar(argumentos)
+            clases = resultado["clases"]
+            probabilidades_modelos.append(np.array(resultado["probabilidades"]))
+        # Conjunto: promedio de las probabilidades calibradas de todos los modelos del pliegue.
+        por_pliegue.append((np.array(resultado["reales"]), np.mean(probabilidades_modelos, axis=0)))
 
-    clases = resultados[0]["clases"]
+    descripcion = {"arquitectura": args.arquitectura, "dataset_extra": args.extra, "epocas": args.epocas,
+                   "lr": args.lr, "lr_base": args.lr_base, "modelos_por_pliegue": args.semillas}
+    sufijo = args.sufijo or (f"_conjunto{args.semillas}" if args.semillas > 1 else "")
+    resumir(por_pliegue, clases, descripcion, f"validacion_cruzada_{args.arquitectura.replace('.', '_')}{sufijo}.json")
+
+
+def resumir(por_pliegue: list[tuple[np.ndarray, np.ndarray]], clases: list[str], descripcion: dict, nombre_archivo: str) -> dict:
+    """Calcula las métricas combinadas a partir de (etiquetas reales, probabilidades) de cada pliegue, las guarda y las imprime."""
     objetivo = clases.index("varicela")
-    reales = np.concatenate([r["reales"] for r in resultados])
-    probabilidades = np.concatenate([r["probabilidades"] for r in resultados])
+    reales = np.concatenate([r for r, _ in por_pliegue])
+    probabilidades = np.concatenate([p for _, p in por_pliegue])
     predicciones = probabilidades.argmax(1)
-    sensibilidades = [r["sensibilidad_objetivo"] for r in resultados]
-    especificidades = [r["especificidad_objetivo"] for r in resultados]
+    sensibilidades, especificidades = [], []
+    for r, p in por_pliegue:
+        es_obj, pred_obj = r == objetivo, p.argmax(1) == objetivo
+        sensibilidades.append(float((es_obj & pred_obj).sum() / max(es_obj.sum(), 1)))
+        especificidades.append(float((~es_obj & ~pred_obj).sum() / max((~es_obj).sum(), 1)))
 
     resumen = {
-        "arquitectura": args.arquitectura, "epocas": args.epocas, "lr": args.lr, "lr_base": args.lr_base,
+        **descripcion,
         "exactitud_balanceada": float(np.mean([(predicciones[reales == c] == c).mean() for c in range(len(clases))])),
-        "pliegues": len(resultados),
+        "pliegues": len(por_pliegue),
         "imagenes_prueba_totales": int(len(reales)),
         "varicelas_prueba_totales": int((reales == objetivo).sum()),
         "exactitud_global": float((predicciones == reales).mean()),
@@ -81,11 +102,10 @@ def main() -> None:
         "efecto_umbral": efecto_umbral(reales, probabilidades, objetivo),
     }
     CARPETA_MODELOS.mkdir(exist_ok=True)
-    # Un archivo por arquitectura para poder comparar las variantes; el punto del nombre se reemplaza.
-    salida = CARPETA_MODELOS / f"validacion_cruzada_{args.arquitectura.replace('.', '_')}.json"
-    salida.write_text(json.dumps(resumen, indent=2, ensure_ascii=False), encoding="utf-8")
+    # Un archivo por variante para poder compararlas.
+    (CARPETA_MODELOS / nombre_archivo).write_text(json.dumps(resumen, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    print(f"\n{'=' * 70}\nRESUMEN DE VALIDACIÓN CRUZADA ({len(resultados)} pliegues)")
+    print(f"\n{'=' * 70}\nRESUMEN DE VALIDACIÓN CRUZADA ({len(por_pliegue)} pliegues) -> {nombre_archivo}")
     print(classification_report(reales, predicciones, target_names=clases, zero_division=0))
     print(f"Varicela: sensibilidad {np.mean(sensibilidades):.3f} ± {np.std(sensibilidades):.3f}, "
           f"especificidad {np.mean(especificidades):.3f} ± {np.std(especificidades):.3f}")
@@ -93,6 +113,7 @@ def main() -> None:
     for fila in resumen["efecto_umbral"]:
         print(f"  umbral {fila['umbral']:.2f}: {fila['indeterminadas']:.0%} indeterminadas, "
               f"sensibilidad {fila['sensibilidad']:.3f}, especificidad {fila['especificidad']:.3f}")
+    return resumen
 
 
 if __name__ == "__main__":

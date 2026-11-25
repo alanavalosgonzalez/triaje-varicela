@@ -23,6 +23,14 @@ LADO_MINIMO = 100           # Lado corto mínimo en píxeles (percentil 1 del da
 LADO_REFERENCIA = 224       # La nitidez se mide a esta escala para comparar fotos de cualquier resolución.
 
 
+# Clase de piel sin enfermedad; cualquier otra clase distinta de varicela es una enfermedad que requiere médico.
+CLASE_SANA = "sana"
+NOMBRES_CLASES = {
+    "varicela": "varicela", "sarampion": "sarampión", "mpox": "mpox (viruela símica)",
+    "viruela_bovina": "viruela bovina", "mano_pie_boca": "enfermedad de mano, pie y boca", "sana": "piel sana",
+}
+
+
 class ErrorVision(RuntimeError):
     """Error al cargar el modelo o al leer la imagen."""
 
@@ -70,13 +78,25 @@ def decidir(probabilidades: dict[str, float], clase_objetivo: str, umbral: float
         )
     if clase == clase_objetivo:
         return "COMPATIBLE", clase, confianza, "Las lesiones son compatibles con varicela."
-    return "NO_COMPATIBLE", clase, confianza, f"Las lesiones se parecen más a: {clase}."
+    if clase != CLASE_SANA:
+        # Regla de seguridad: si no parece varicela pero sí otra enfermedad (mpox, sarampión, etc.), también hace
+        # falta un médico. Así, aunque el modelo confunda una varicela con otra enfermedad, el usuario llega a consulta.
+        return "NO_COMPATIBLE", clase, confianza, (
+            f"No parece varicela, pero las lesiones se parecen a otra enfermedad ({NOMBRES_CLASES.get(clase, clase)}) "
+            "que también requiere valoración médica.")
+    return "NO_COMPATIBLE", clase, confianza, "Las lesiones no parecen varicela."
+
+
+def requiere_medico(resultado: "ResultadoImagen") -> bool:
+    """Indica si el resultado debe recomendar consulta médica: varicela compatible u otra enfermedad reconocida."""
+    return resultado.decision == "COMPATIBLE" or (resultado.decision == "NO_COMPATIBLE" and resultado.clase_predicha != CLASE_SANA)
 
 
 class AnalizadorImagen:
     """Carga el modelo una sola vez y analiza las imágenes que el usuario suba."""
 
-    def __init__(self, ruta_modelo: Path = RUTA_MODELO, ruta_metadatos: Path = RUTA_METADATOS, umbral: float | None = None):
+    def __init__(self, ruta_modelo: Path = RUTA_MODELO, ruta_metadatos: Path = RUTA_METADATOS,
+                 umbral: float | None = None, tta: bool | None = None):
         """Abre el modelo ONNX y lee sus metadatos (clases, temperatura y normalización)."""
         if not ruta_modelo.is_file():
             raise ErrorVision("No se encontró models/varicela.onnx. Entrena el modelo o descárgalo del Release.")
@@ -89,6 +109,8 @@ class AnalizadorImagen:
         if umbral is None:
             umbral = os.getenv("VISION_UMBRAL_CONFIANZA") or self.meta.get("umbral_recomendado", 0.85)
         self.umbral = float(umbral)
+        # Analizar también en espejo (TTA): por defecto lo indica el modelo en sus metadatos.
+        self.tta = self.meta.get("tta", False) if tta is None else tta
 
     def preprocesar(self, imagen: Image.Image) -> np.ndarray:
         """Redimensiona, recorta al centro y normaliza igual que en la evaluación del entrenamiento."""
@@ -116,10 +138,15 @@ class AnalizadorImagen:
         if problema:
             return ResultadoImagen("INDETERMINADO", "sin_analizar", 0.0, {}, self.umbral, problema, sha256, version)
 
-        logits = self.sesion.run(None, {"imagen": self.preprocesar(imagen)})[0][0]
+        # Con TTA se analiza también la foto en espejo y se promedian las probabilidades: una lesión
+        # sigue siendo la misma al reflejarla, y promediar dos "opiniones" estabiliza la confianza.
+        vistas = [imagen, ImageOps.mirror(imagen)] if self.tta else [imagen]
+        lote = np.concatenate([self.preprocesar(v) for v in vistas])
+        logits = self.sesion.run(None, {"imagen": lote})[0]
         # Softmax con la temperatura calibrada para que la confianza sea realista.
         escalados = logits / self.meta["temperatura"]
-        exponenciales = np.exp(escalados - escalados.max())
-        probabilidades = dict(zip(self.meta["clases"], (exponenciales / exponenciales.sum()).tolist()))
+        exponenciales = np.exp(escalados - escalados.max(axis=1, keepdims=True))
+        promedio = (exponenciales / exponenciales.sum(axis=1, keepdims=True)).mean(axis=0)
+        probabilidades = dict(zip(self.meta["clases"], promedio.tolist()))
         decision, clase, confianza, motivo = decidir(probabilidades, self.meta["clase_objetivo"], self.umbral)
         return ResultadoImagen(decision, clase, confianza, probabilidades, self.umbral, motivo, sha256, version)

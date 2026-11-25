@@ -1,6 +1,6 @@
 {
-  "arquitectura": "convnext_tiny.fb_in22k_ft_in1k",
-  "version": "vision-1.0.0",
+  "arquitectura": "vit_small_patch14_dinov2.lvd142m (congelado) + regresión logística (C=0.01)",
+  "version": "vision-2.0.0",
   "clases": [
     "mano_pie_boca",
     "mpox",
@@ -10,9 +10,8 @@
     "viruela_bovina"
   ],
   "clase_objetivo": "varicela",
-  "temperatura": 0.8219223618507385,
+  "temperatura": 1.0,
   "tamano": 224,
-  "umbral_recomendado": 0.7,
   "media": [
     0.485,
     0.456,
@@ -22,5 +21,8 @@
     0.229,
     0.224,
     0.225
-  ]
+  ],
+  "umbral_recomendado": 0.6,
+  "tta": false,
+  "entrenado_con": "755 fotos originales de MSLD v2.0 (todas); rendimiento medido con validación cruzada"
 }

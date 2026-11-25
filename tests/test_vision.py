@@ -51,6 +51,24 @@ class PruebasDecision(unittest.TestCase):
         decision, clase, _, _ = decidir({"varicela": 0.04, "sarampion": 0.90, "sana": 0.06}, "varicela", 0.85)
         self.assertEqual((decision, clase), ("NO_COMPATIBLE", "sarampion"))
 
+    def test_otra_enfermedad_requiere_medico(self):
+        """Si la foto parece otra enfermedad (no piel sana), el resultado recomienda consulta médica."""
+        from app.vision.analizador import ResultadoImagen, requiere_medico
+
+        decision, clase, confianza, motivo = decidir({"varicela": 0.04, "mpox": 0.93, "sana": 0.03}, "varicela", 0.6)
+        self.assertEqual(decision, "NO_COMPATIBLE")
+        self.assertIn("valoración médica", motivo)
+        resultado = ResultadoImagen(decision, clase, confianza, {}, 0.6, motivo, "x", "v")
+        self.assertTrue(requiere_medico(resultado))
+
+    def test_piel_sana_no_requiere_medico(self):
+        """Piel sana con confianza alta no activa la recomendación de consulta."""
+        from app.vision.analizador import ResultadoImagen, requiere_medico
+
+        decision, clase, confianza, motivo = decidir({"varicela": 0.05, "sana": 0.90, "mpox": 0.05}, "varicela", 0.6)
+        resultado = ResultadoImagen(decision, clase, confianza, {}, 0.6, motivo, "x", "v")
+        self.assertFalse(requiere_medico(resultado))
+
     def test_indeterminado(self):
         """Si ninguna clase supera el umbral, el resultado es INDETERMINADO aunque gane varicela."""
         decision, _, confianza, _ = decidir({"varicela": 0.60, "sarampion": 0.30, "sana": 0.10}, "varicela", 0.85)

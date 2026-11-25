@@ -68,5 +68,5 @@ class AsistenteMedico:
         revisada = seguridad.revisar_respuesta(texto_modelo)
         self.derivado = self.derivado or revisada.derivar
         self.historial.append(Mensaje("asistente", revisada.texto))
-        self._guardar("asistente", revisada.texto, umbral_duda=revisada.derivar, modelo=self.proveedor.nombre_modelo)
+        self._guardar("asistente", revisada.texto, umbral_duda=revisada.derivar, modelo=getattr(self.proveedor, "modelo_usado", self.proveedor.nombre_modelo))
         return RespuestaAsistente(texto=revisada.texto, derivar=revisada.derivar, urgencia=False, signos=[])

@@ -1,0 +1,185 @@
+{
+  "arquitectura": "vit_small_patch14_dinov2.lvd142m",
+  "metodo": "caracteristicas congeladas + regresion logistica",
+  "C": 0.01,
+  "exactitud_balanceada": 0.8237104142469995,
+  "pliegues": 5,
+  "imagenes_prueba_totales": 364,
+  "varicelas_prueba_totales": 42,
+  "exactitud_global": 0.8269230769230769,
+  "sensibilidad_varicela": {
+    "media": 0.7004329004329004,
+    "desviacion": 0.17474169549666663,
+    "por_pliegue": [
+      0.6666666666666666,
+      0.45454545454545453,
+      0.6666666666666666,
+      1.0,
+      0.7142857142857143
+    ]
+  },
+  "especificidad_varicela": {
+    "media": 0.9514482800131173,
+    "desviacion": 0.030293666958480535,
+    "por_pliegue": [
+      0.9692307692307692,
+      0.9436619718309859,
+      0.9137931034482759,
+      0.9305555555555556,
+      1.0
+    ]
+  },
+  "reporte_combinado": {
+    "mano_pie_boca": {
+      "precision": 0.8953488372093024,
+      "recall": 0.9390243902439024,
+      "f1-score": 0.9166666666666666,
+      "support": 82.0
+    },
+    "mpox": {
+      "precision": 0.8205128205128205,
+      "recall": 0.768,
+      "f1-score": 0.7933884297520661,
+      "support": 125.0
+    },
+    "sana": {
+      "precision": 0.8867924528301887,
+      "recall": 0.94,
+      "f1-score": 0.912621359223301,
+      "support": 50.0
+    },
+    "sarampion": {
+      "precision": 0.8928571428571429,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.8620689655172413,
+      "support": 30.0
+    },
+    "varicela": {
+      "precision": 0.6444444444444445,
+      "recall": 0.6904761904761905,
+      "f1-score": 0.6666666666666666,
+      "support": 42.0
+    },
+    "viruela_bovina": {
+      "precision": 0.7714285714285715,
+      "recall": 0.7714285714285715,
+      "f1-score": 0.7714285714285715,
+      "support": 35.0
+    },
+    "accuracy": 0.8269230769230769,
+    "macro avg": {
+      "precision": 0.8185640448804117,
+      "recall": 0.8237104142469995,
+      "f1-score": 0.8204734432090856,
+      "support": 364.0
+    },
+    "weighted avg": {
+      "precision": 0.8274030516735047,
+      "recall": 0.8269230769230769,
+      "f1-score": 0.8264652673416406,
+      "support": 364.0
+    }
+  },
+  "matriz_confusion_combinada": [
+    [
+      77,
+      2,
+      1,
+      0,
+      1,
+      1
+    ],
+    [
+      4,
+      96,
+      2,
+      2,
+      15,
+      6
+    ],
+    [
+      3,
+      0,
+      47,
+      0,
+      0,
+      0
+    ],
+    [
+      1,
+      1,
+      3,
+      25,
+      0,
+      0
+    ],
+    [
+      1,
+      10,
+      0,
+      1,
+      29,
+      1
+    ],
+    [
+      0,
+      8,
+      0,
+      0,
+      0,
+      27
+    ]
+  ],
+  "clases": [
+    "mano_pie_boca",
+    "mpox",
+    "sana",
+    "sarampion",
+    "varicela",
+    "viruela_bovina"
+  ],
+  "efecto_umbral": [
+    {
+      "umbral": 0.5,
+      "indeterminadas": 0.07967032967032972,
+      "sensibilidad": 0.78125,
+      "especificidad": 0.9471947194719472,
+      "varicelas_decididas": 32
+    },
+    {
+      "umbral": 0.6,
+      "indeterminadas": 0.19505494505494503,
+      "sensibilidad": 0.8846153846153846,
+      "especificidad": 0.9550561797752809,
+      "varicelas_decididas": 26
+    },
+    {
+      "umbral": 0.7,
+      "indeterminadas": 0.3076923076923077,
+      "sensibilidad": 0.9090909090909091,
+      "especificidad": 0.9739130434782609,
+      "varicelas_decididas": 22
+    },
+    {
+      "umbral": 0.8,
+      "indeterminadas": 0.43131868131868134,
+      "sensibilidad": 1.0,
+      "especificidad": 0.9789473684210527,
+      "varicelas_decididas": 17
+    },
+    {
+      "umbral": 0.85,
+      "indeterminadas": 0.5082417582417582,
+      "sensibilidad": 1.0,
+      "especificidad": 0.9817073170731707,
+      "varicelas_decididas": 15
+    },
+    {
+      "umbral": 0.9,
+      "indeterminadas": 0.6263736263736264,
+      "sensibilidad": 1.0,
+      "especificidad": 0.9921259842519685,
+      "varicelas_decididas": 9
+    }
+  ]
+}
