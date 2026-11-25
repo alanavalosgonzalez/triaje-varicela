@@ -26,8 +26,8 @@ class PruebasCalidad(unittest.TestCase):
         self.assertIsNone(calidad_imagen(imagen_ruido()))
 
     def test_muy_pequena(self):
-        """Una imagen menor de 224 píxeles se rechaza."""
-        self.assertIn("pequeña", calidad_imagen(imagen_ruido(lado=100)))
+        """Una imagen menor de 100 píxeles se rechaza."""
+        self.assertIn("pequeña", calidad_imagen(imagen_ruido(lado=64)))
 
     def test_oscura(self):
         """Una imagen casi negra se rechaza por oscura."""

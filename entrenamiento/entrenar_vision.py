@@ -130,6 +130,8 @@ def crear_parser() -> argparse.ArgumentParser:
     parser.add_argument("--semilla", type=int, default=42)
     parser.add_argument("--lr", type=float, default=1e-3, help="Tasa de aprendizaje de la capa final nueva.")
     parser.add_argument("--lr-base", type=float, default=1e-4, help="Tasa de aprendizaje de la red preentrenada.")
+    parser.add_argument("--umbral", type=float, default=0.70,
+                        help="Umbral de confianza recomendado (elegido con la validación cruzada); se guarda en los metadatos.")
     parser.add_argument("--no-exportar", action="store_true", help="Solo mide; no guarda el modelo ONNX.")
     return parser
 
@@ -261,6 +263,7 @@ def entrenar(args: argparse.Namespace) -> dict:
     metadatos = {
         "arquitectura": args.arquitectura, "version": "vision-1.0.0", "clases": clases,
         "clase_objetivo": args.clase_objetivo, "temperatura": temperatura, "tamano": TAMANO,
+        "umbral_recomendado": args.umbral,
         "media": MEDIA, "desviacion": DESVIACION,
     }
     (CARPETA_MODELOS / "varicela.json").write_text(json.dumps(metadatos, indent=2, ensure_ascii=False), encoding="utf-8")

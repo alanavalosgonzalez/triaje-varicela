@@ -14,11 +14,13 @@ from app import config
 RUTA_MODELO = config.RAIZ / "models" / "varicela.onnx"
 RUTA_METADATOS = config.RAIZ / "models" / "varicela.json"
 
-# Límites de calidad de imagen: por debajo se pide otra foto en lugar de analizarla.
-BRILLO_MINIMO = 40          # Media de gris de 0 a 255; menos es una foto demasiado oscura.
+# Límites de calidad de imagen, calibrados con las fotos del dataset MSLD v2.0: se fijaron por debajo
+# del percentil 1 de cada medida, para rechazar solo fotos realmente inservibles.
+BRILLO_MINIMO = 30          # Media de gris de 0 a 255 (percentil 1 del dataset: 53).
 BRILLO_MAXIMO = 235         # Más es una foto sobreexpuesta.
-NITIDEZ_MINIMA = 50.0       # Varianza del laplaciano; menos indica una foto borrosa.
-LADO_MINIMO = 224           # Resolución mínima en píxeles.
+NITIDEZ_MINIMA = 3.0        # Varianza del laplaciano a 224 px (percentil 1 del dataset: 4.6).
+LADO_MINIMO = 100           # Lado corto mínimo en píxeles (percentil 1 del dataset: 121).
+LADO_REFERENCIA = 224       # La nitidez se mide a esta escala para comparar fotos de cualquier resolución.
 
 
 class ErrorVision(RuntimeError):
@@ -43,7 +45,10 @@ def calidad_imagen(imagen: Image.Image) -> str | None:
     """Revisa tamaño, brillo y nitidez; devuelve un motivo si la foto no sirve o None si es aceptable."""
     if min(imagen.size) < LADO_MINIMO:
         return f"La imagen es muy pequeña (mínimo {LADO_MINIMO} píxeles por lado)."
-    gris = np.asarray(imagen.convert("L"), dtype=np.float32)
+    # Se reduce al tamaño de referencia: una foto de celular de 4000 px tiene bordes más "suaves" por píxel.
+    escala = LADO_REFERENCIA / min(imagen.size)
+    reducida = imagen.resize((round(imagen.width * escala), round(imagen.height * escala)), Image.BILINEAR)
+    gris = np.asarray(reducida.convert("L"), dtype=np.float32)
     brillo = gris.mean()
     if brillo < BRILLO_MINIMO:
         return "La foto está demasiado oscura; tómala con buena luz."
@@ -79,7 +84,11 @@ class AnalizadorImagen:
 
         self.sesion = ort.InferenceSession(str(ruta_modelo), providers=["CPUExecutionProvider"])
         self.meta = json.loads(ruta_metadatos.read_text(encoding="utf-8"))
-        self.umbral = umbral if umbral is not None else float(os.getenv("VISION_UMBRAL_CONFIANZA", "0.85"))
+        # Prioridad del umbral: argumento explícito, variable VISION_UMBRAL_CONFIANZA (para pruebas)
+        # y, por defecto, el umbral recomendado que se calculó con la validación cruzada al entrenar.
+        if umbral is None:
+            umbral = os.getenv("VISION_UMBRAL_CONFIANZA") or self.meta.get("umbral_recomendado", 0.85)
+        self.umbral = float(umbral)
 
     def preprocesar(self, imagen: Image.Image) -> np.ndarray:
         """Redimensiona, recorta al centro y normaliza igual que en la evaluación del entrenamiento."""
