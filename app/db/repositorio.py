@@ -21,6 +21,8 @@ def conectar(ruta: Path | str | None = None) -> sqlite3.Connection:
     # El contenido del Centro Informativo solo se carga la primera vez, cuando la tabla está vacía.
     if conexion.execute("SELECT COUNT(*) FROM catalogo_informacion").fetchone()[0] == 0:
         conexion.executescript(config.SEED_INFORMACION.read_text(encoding="utf-8"))
+    # El contenido añadido después se aplica siempre: cada fila se inserta solo si aún no existe.
+    conexion.executescript(config.SEED_INFORMACION_EXTRA.read_text(encoding="utf-8"))
     return conexion
 
 
