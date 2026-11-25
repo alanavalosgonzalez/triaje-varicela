@@ -45,10 +45,8 @@ QFrame#encabezado {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {AZUL_CLINICO}, stop:0.65 #136A8F, stop:1 {TEAL});
 }}
 QFrame#encabezado QLabel {{ background: transparent; color: {BLANCO}; }}
-QLabel#aviso {{
-    background: {AMBAR_FONDO}; color: {AMBAR}; border: none; border-bottom: 1px solid #F5D08A;
-    padding: 7px 14px; font-size: 9pt;
-}}
+QFrame#aviso {{ background: {AMBAR_FONDO}; border: none; border-bottom: 1px solid #F5D08A; }}
+QFrame#aviso QLabel {{ background: transparent; color: {AMBAR}; font-size: 9pt; }}
 QFrame#tarjeta {{ background: {BLANCO}; border: 1px solid #E3EAF2; border-radius: 14px; }}
 QFrame#tarjeta QLabel, QFrame#tarjeta QRadioButton, QFrame#tarjeta QCheckBox {{ background: transparent; }}
 QFrame#lateral {{ background: {BLANCO}; border-right: 1px solid {BORDE}; }}
@@ -111,6 +109,26 @@ QScrollBar:vertical {{ background: transparent; width: 10px; margin: 2px; }}
 QScrollBar::handle:vertical {{ background: #C9D6E3; border-radius: 4px; min-height: 30px; }}
 QScrollBar::handle:vertical:hover {{ background: #A9BCD0; }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+QFrame#pregunta {{ background: {BLANCO}; border: 1px solid #E3EAF2; border-radius: 14px; }}
+QFrame#pregunta:hover {{ border: 1px solid #B9D7E0; background: #FBFDFF; }}
+QFrame#pregunta[estado="respondida"] {{ border: 1px solid #8FD0CE; background: #F5FBFB; }}
+QFrame#pregunta[estado="alarma"] {{ border: 2px solid {ROJO}; background: {ROJO_FONDO}; }}
+QFrame#pregunta[estado="faltante"] {{ border: 2px solid #E3A13B; background: #FFFBF1; }}
+QFrame#pregunta QLabel {{ background: transparent; }}
+QLabel#pregunta_titulo {{ font-size: 10.5pt; font-weight: 600; color: {AZUL_OSCURO}; }}
+QLabel#pregunta_ayuda {{ color: {PIZARRA_SUAVE}; font-size: 9pt; }}
+QPushButton#opcion {{
+    background: {BLANCO}; color: {PIZARRA}; border: 1px solid #C9D6E3; border-radius: 16px;
+    padding: 7px 14px; font-weight: 600;
+}}
+QPushButton#opcion:hover {{ border: 1px solid {TEAL}; background: {TEAL_FONDO}; }}
+QPushButton#opcion[tipo="si"]:checked {{ background: {TEAL}; color: {BLANCO}; border: 1px solid {TEAL}; }}
+QPushButton#opcion[tipo="si_alarma"]:checked {{ background: {ROJO}; color: {BLANCO}; border: 1px solid {ROJO}; }}
+QPushButton#opcion[tipo="no"]:checked {{ background: {AZUL_CLINICO}; color: {BLANCO}; border: 1px solid {AZUL_CLINICO}; }}
+QPushButton#opcion[tipo="nose"]:checked {{ background: #E3A13B; color: {BLANCO}; border: 1px solid #E3A13B; }}
+QFrame#aviso_alarma {{ background: {ROJO_FONDO}; border: 1px solid {ROJO}; border-radius: 12px; }}
+QFrame#aviso_alarma QLabel {{ background: transparent; color: {ROJO}; font-weight: 600; }}
+QLabel#contador {{ color: {TEAL}; font-weight: 600; }}
 QLabel#globo {{
     background: {BLANCO}; color: {AZUL_OSCURO}; border: 1px solid #CFE3EE; border-radius: 14px; padding: 10px 12px;
 }}

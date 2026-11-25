@@ -1,6 +1,6 @@
 """Ventana principal: encabezado, aviso médico permanente, menú lateral con el asistente animado y páginas."""
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QPushButton,
     QVBoxLayout, QWidget,
@@ -12,6 +12,7 @@ from app.ui.animaciones import PilaAnimada
 from app.ui.asistente_animado import PanelAsistente
 from app.ui.comun import Sesion
 from app.ui.dialogo_clave import DialogoClave
+from app.ui.iconos import icono
 from app.ui.pagina_chat import PaginaChat
 from app.ui.pagina_historial import PaginaHistorial
 from app.ui.pagina_imagen import PaginaImagen
@@ -19,7 +20,7 @@ from app.ui.pagina_info import PaginaInfo
 from app.ui.pagina_mapa import PaginaMapa
 from app.ui.pagina_triaje import PaginaTriaje
 
-AVISO_MEDICO = ("⚠  Herramienta de apoyo orientativo. NO sustituye una consulta médica presencial. "
+AVISO_MEDICO = ("Herramienta de apoyo orientativo. NO sustituye una consulta médica presencial. "
                 "Ante dificultad para respirar, fiebre muy alta, lesiones infectadas o cualquier duda, acude a un médico.")
 ORIGENES = {"TRIAJE": "el cuestionario", "CHAT": "el asistente virtual", "IMAGEN": "el análisis de imagen"}
 
@@ -60,9 +61,17 @@ class VentanaPrincipal(QMainWindow):
         raiz.setContentsMargins(0, 0, 0, 0)
         raiz.setSpacing(0)
         raiz.addWidget(self._crear_encabezado())
-        aviso = QLabel(AVISO_MEDICO)
+        # Aviso médico permanente con un ícono de alerta dibujado (sin emojis).
+        aviso = QFrame()
         aviso.setObjectName("aviso")
-        aviso.setWordWrap(True)
+        capa_aviso = QHBoxLayout(aviso)
+        capa_aviso.setContentsMargins(14, 6, 14, 6)
+        simbolo = QLabel()
+        simbolo.setPixmap(icono("alerta", estilos.AMBAR, 18).pixmap(18, 18))
+        texto_aviso = QLabel(AVISO_MEDICO)
+        texto_aviso.setWordWrap(True)
+        capa_aviso.addWidget(simbolo)
+        capa_aviso.addWidget(texto_aviso, 1)
         raiz.addWidget(aviso)
 
         cuerpo = QHBoxLayout()
@@ -83,15 +92,16 @@ class VentanaPrincipal(QMainWindow):
         self.pagina_mapa = PaginaMapa(self.sesion)
         self.pagina_mapa.sin_animacion = True  # El visor web del mapa no admite efectos de opacidad.
         self.pagina_chat = PaginaChat(self.sesion)
-        for nombre, pagina in [
-            ("📋   Cuestionario", self.pagina_triaje),
-            ("💬   Asistente virtual", self.pagina_chat),
-            ("📷   Análisis de imagen", PaginaImagen(self.sesion)),
-            ("📘   Centro Informativo", PaginaInfo(self.sesion)),
-            ("📍   Centros cercanos", self.pagina_mapa),
-            ("🕘   Historial", PaginaHistorial(self.sesion)),
+        self.menu.setIconSize(QSize(20, 20))
+        for nombre, nombre_icono, pagina in [
+            ("Cuestionario", "cuestionario", self.pagina_triaje),
+            ("Asistente virtual", "chat", self.pagina_chat),
+            ("Análisis de imagen", "imagen", PaginaImagen(self.sesion)),
+            ("Centro Informativo", "informacion", PaginaInfo(self.sesion)),
+            ("Centros cercanos", "mapa", self.pagina_mapa),
+            ("Historial", "historial", PaginaHistorial(self.sesion)),
         ]:
-            self.menu.addItem(QListWidgetItem(nombre))
+            self.menu.addItem(QListWidgetItem(icono(nombre_icono), "  " + nombre))
             self.paginas.addWidget(pagina)
         cuerpo.addWidget(lateral)
         cuerpo.addWidget(self.paginas, 1)
@@ -120,14 +130,19 @@ class VentanaPrincipal(QMainWindow):
         encabezado.setObjectName("encabezado")
         capa = QHBoxLayout(encabezado)
         capa.setContentsMargins(22, 12, 22, 12)
-        titulo = QLabel("🩺  Triaje Varicela")
+        logotipo = QLabel()
+        logotipo.setPixmap(icono("cruz", "#FFFFFF", 26).pixmap(26, 26))
+        titulo = QLabel("Triaje Varicela")
         titulo.setStyleSheet("font-size: 16pt; font-weight: 600;")
+        capa.addWidget(logotipo)
+        capa.addSpacing(6)
         subtitulo = QLabel("Pre-diagnóstico y orientación")
         subtitulo.setStyleSheet("color: rgba(255,255,255,0.85);")
         capa.addWidget(titulo)
         capa.addStretch()
         capa.addWidget(subtitulo)
-        boton_config = QPushButton("⚙  Configurar asistente")
+        boton_config = QPushButton("Configurar asistente")
+        boton_config.setIcon(icono("configuracion", "#FFFFFF", 18))
         boton_config.setObjectName("encabezado")
         boton_config.clicked.connect(self.configurar_clave)
         capa.addSpacing(16)
@@ -144,7 +159,10 @@ class VentanaPrincipal(QMainWindow):
     def _mostrar_diagnostico(self) -> None:
         """Muestra en la barra inferior qué componentes están disponibles; el detalle aparece al pasar el mouse."""
         componentes = diagnostico.revisar()
-        self.indicador.setText("   ".join(f"{'✓' if c.disponible else '✗'} {c.nombre}" for c in componentes))
+        # Punto verde azulado si el componente está listo y ámbar si falta (texto enriquecido, sin emojis).
+        self.indicador.setText("&nbsp;&nbsp;&nbsp;".join(
+            f"<span style='color:{estilos.TEAL if c.disponible else estilos.AMBAR}'>●</span> {c.nombre}"
+            + ("" if c.disponible else " (falta)") for c in componentes))
         self.indicador.setToolTip("\n".join(f"{c.nombre}: {c.detalle}" for c in componentes))
         completo = all(c.disponible for c in componentes)
         self.indicador.setStyleSheet("" if completo else f"color: {estilos.AMBAR}; font-weight: 600;")
@@ -162,7 +180,7 @@ class VentanaPrincipal(QMainWindow):
         if self.item_mapa.flags() & Qt.ItemIsEnabled:
             return
         self.item_mapa.setFlags(self.item_mapa.flags() | Qt.ItemIsEnabled)
-        self.item_mapa.setText("📍   Centros cercanos  ●")
+        self.item_mapa.setIcon(icono("mapa", punto=estilos.AMBAR))  # Punto ámbar: sección recién habilitada.
         self.statusBar().showMessage(f"Se recomienda valoración médica (según {ORIGENES.get(origen, origen)}).")
         if origen != "TRIAJE":  # En el triaje el botón del resultado ya lo indica.
             # Se muestra un instante después para que primero se vea la respuesta del módulo.

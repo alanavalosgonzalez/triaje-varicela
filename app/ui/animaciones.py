@@ -14,8 +14,8 @@ def _conservar(animacion) -> None:
     animacion.finished.connect(lambda: _ACTIVAS.discard(animacion))
 
 
-def aparecer(widget: QWidget, duracion: int = 350, desplazamiento: int = 0) -> None:
-    """Hace aparecer un widget con un fundido de opacidad y, opcionalmente, deslizándolo hacia arriba."""
+def aparecer(widget: QWidget, duracion: int = 350, desplazamiento: int = 0, horizontal: int = 0) -> None:
+    """Hace aparecer un widget con un fundido y, opcionalmente, deslizándolo (hacia arriba o de lado)."""
     if getattr(widget, "sin_animacion", False):
         return
     efecto = QGraphicsOpacityEffect(widget)
@@ -27,11 +27,11 @@ def aparecer(widget: QWidget, duracion: int = 350, desplazamiento: int = 0) -> N
     fundido.setEndValue(1.0)
     fundido.setEasingCurve(QEasingCurve.OutCubic)
     grupo.addAnimation(fundido)
-    if desplazamiento:
+    if desplazamiento or horizontal:
         destino = widget.pos()
         movimiento = QPropertyAnimation(widget, b"pos")
         movimiento.setDuration(duracion)
-        movimiento.setStartValue(destino + QPoint(0, desplazamiento))
+        movimiento.setStartValue(destino + QPoint(horizontal, desplazamiento))
         movimiento.setEndValue(destino)
         movimiento.setEasingCurve(QEasingCurve.OutCubic)
         grupo.addAnimation(movimiento)
