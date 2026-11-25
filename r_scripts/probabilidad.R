@@ -66,7 +66,8 @@ calcular_probabilidad <- function(datos, n_sim = 5000, semilla = 42) {
   p_puntual <- plogis(predictor_lineal(datos, COEFICIENTES$beta))
   # Solo cuentan las respuestas "no sé" explícitas; un síntoma no enviado no es duda.
   enviados <- intersect(names(datos), names(PERFIL_TIPICO))
-  n_desconocidos <- sum(sapply(enviados, function(v) is.na(datos[[v]])))
+  # vapply garantiza un vector lógico aunque no se haya enviado ningún síntoma.
+  n_desconocidos <- sum(vapply(enviados, function(v) is.na(datos[[v]]), logical(1)))
   factor_ee <- 1 + 0.15 * n_desconocidos
   simulaciones <- replicate(n_sim, {
     betas <- rnorm(nrow(COEFICIENTES), COEFICIENTES$beta, COEFICIENTES$ee * factor_ee)

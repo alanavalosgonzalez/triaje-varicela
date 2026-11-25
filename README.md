@@ -8,7 +8,7 @@ Aplicación de escritorio para el pre-diagnóstico, triaje y orientación sobre 
 
 - [x] Fase 1 — Arquitectura, base de datos y estructura
 - [x] Fase 2 — Prolog (reglas) y R (estadística)
-- [ ] Fase 3 — Núcleo Python y base de datos
+- [x] Fase 3 — Núcleo Python y base de datos
 - [ ] Fase 4 — Asistente IA y visión artificial
 - [ ] Fase 5 — Interfaz gráfica y mapa
 
@@ -35,6 +35,16 @@ copy .env.example .env
 ```
 
 (Si `swipl` y `Rscript` están en tu PATH, basta con escribir su nombre.)
+
+```powershell
+python -m unittest -v
+```
+
+## Demo en consola
+
+```powershell
+python -m app.demo_triaje
+```
 
 ## Estructura
 
