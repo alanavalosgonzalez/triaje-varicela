@@ -5,6 +5,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from app.db import repositorio
+from app.vision.analizador import requiere_medico
 from app.ui import estilos
 from app.ui.comun import Sesion, ejecutar, etiqueta, tarjeta
 
@@ -16,6 +17,7 @@ CLASES = {
 DECISIONES = {
     "COMPATIBLE": ("Compatible con varicela", estilos.ROJO, estilos.ROJO_FONDO),
     "NO_COMPATIBLE": ("No parece varicela", estilos.TEAL, estilos.TEAL_FONDO),
+    "OTRA_ENFERMEDAD": ("No parece varicela: consulta a un médico", estilos.AMBAR, estilos.AMBAR_FONDO),
     "INDETERMINADO": ("Resultado no concluyente", estilos.AMBAR, estilos.AMBAR_FONDO),
 }
 CONSEJOS = ("Consejos para la foto: luz natural sin flash, enfoca de cerca (10 a 20 cm) varias lesiones, "
@@ -100,7 +102,8 @@ class PaginaImagen(QWidget):
     def _mostrar(self, resultado) -> None:
         """Muestra la decisión, las clases más probables y guarda el análisis."""
         self.boton_analizar.setEnabled(True)
-        titulo, color, fondo = DECISIONES[resultado.decision]
+        clave = "OTRA_ENFERMEDAD" if resultado.decision == "NO_COMPATIBLE" and requiere_medico(resultado) else resultado.decision
+        titulo, color, fondo = DECISIONES[clave]
         self.caja.setText(titulo)
         self.caja.setStyleSheet(estilos.caja_resultado(color, fondo))
         principales = sorted(resultado.probabilidades.items(), key=lambda par: -par[1])[:3]
@@ -112,5 +115,5 @@ class PaginaImagen(QWidget):
             f"{resultado.umbral:.0%}. Una foto no basta para diagnosticar: confirma siempre con un médico.</p>"
         )
         repositorio.guardar_analisis_imagen(self.sesion.conexion, self.sesion.asegurar_consulta(), self.ruta, resultado)
-        if resultado.decision == "COMPATIBLE":
+        if requiere_medico(resultado):
             self.sesion.activar_derivacion("IMAGEN")

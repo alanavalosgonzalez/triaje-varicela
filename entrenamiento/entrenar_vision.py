@@ -130,8 +130,14 @@ def crear_parser() -> argparse.ArgumentParser:
     parser.add_argument("--semilla", type=int, default=42)
     parser.add_argument("--lr", type=float, default=1e-3, help="Tasa de aprendizaje de la capa final nueva.")
     parser.add_argument("--lr-base", type=float, default=1e-4, help="Tasa de aprendizaje de la red preentrenada.")
-    parser.add_argument("--umbral", type=float, default=0.70,
+    parser.add_argument("--umbral", type=float, default=0.60,
                         help="Umbral de confianza recomendado (elegido con la validación cruzada); se guarda en los metadatos.")
+    parser.add_argument("--extra", type=Path, default=None,
+                        help="Dataset adicional (subcarpetas por clase) que se suma SOLO al entrenamiento, nunca a la prueba.")
+    parser.add_argument("--incluir-prueba", action="store_true",
+                        help="Suma las fotos de prueba al entrenamiento (para el modelo final, cuando el rendimiento "
+                             "ya se estimó con la validación cruzada). Las métricas de prueba dejan de ser válidas.")
+    parser.add_argument("--version", default="vision-1.2.0", help="Versión que se guarda en los metadatos del modelo.")
     parser.add_argument("--no-exportar", action="store_true", help="Solo mide; no guarda el modelo ONNX.")
     return parser
 
@@ -171,6 +177,20 @@ def entrenar(args: argparse.Namespace) -> dict:
         r_ent, r_tmp, e_ent, e_tmp = train_test_split(rutas, etiquetas, test_size=0.30, stratify=etiquetas, random_state=args.semilla)
         r_val, r_pru, e_val, e_pru = train_test_split(r_tmp, e_tmp, test_size=0.50, stratify=e_tmp, random_state=args.semilla)
     print(f"Clases: {clases}")
+    if args.incluir_prueba:
+        # Más datos para el modelo que se publica. Se conserva la validación para elegir la época y calibrar.
+        r_ent, e_ent = list(r_ent) + list(r_pru), list(e_ent) + list(e_pru)
+        print(f"Fotos de prueba sumadas al entrenamiento: {len(r_pru)} (total {len(r_ent)}). "
+              "Las métricas de prueba de este modelo NO son una evaluación independiente.")
+    if args.extra is not None:
+        # Las fotos extra solo se añaden al entrenamiento: la validación y la prueba siguen siendo las originales,
+        # para que las métricas sean comparables y no se inflen.
+        r_extra, e_extra, clases_extra = listar_imagenes(args.extra)
+        traduccion = {i: clases.index(c) for i, c in enumerate(clases_extra) if c in clases}
+        anadidas = [(r, traduccion[e]) for r, e in zip(r_extra, e_extra) if e in traduccion]
+        r_ent = list(r_ent) + [r for r, _ in anadidas]
+        e_ent = list(e_ent) + [e for _, e in anadidas]
+        print(f"Dataset extra: {len(anadidas)} imágenes añadidas al entrenamiento (total {len(r_ent)}).")
     t_ent, t_eval = transformaciones()
     # Sin procesos auxiliares (num_workers=0): en Windows cada proceso reimporta PyTorch en cada época,
     # y con imágenes pequeñas en memoria cargar en el proceso principal es mucho más rápido.
@@ -244,7 +264,9 @@ def entrenar(args: argparse.Namespace) -> dict:
     metricas = {
         "datos": str(args.datos), "clases": clases,
         "imagenes": {"entrenamiento": len(r_ent), "validacion": len(r_val), "prueba": len(r_pru)},
-        "arquitectura": args.arquitectura, "exactitud_balanceada_validacion": mejor_exactitud, "temperatura": temperatura,
+        "arquitectura": args.arquitectura, "dataset_extra": str(args.extra) if args.extra else None,
+        "prueba_incluida_en_entrenamiento": args.incluir_prueba,
+        "exactitud_balanceada_validacion": mejor_exactitud, "temperatura": temperatura,
         "reporte_prueba": reporte, "matriz_confusion": matriz,
         "sensibilidad_objetivo": sensibilidad, "especificidad_objetivo": especificidad,
         "reales": reales.tolist(), "probabilidades": probabilidades.round(5).tolist(),
@@ -261,7 +283,7 @@ def entrenar(args: argparse.Namespace) -> dict:
         opset_version=17, dynamo=False,
     )
     metadatos = {
-        "arquitectura": args.arquitectura, "version": "vision-1.0.0", "clases": clases,
+        "arquitectura": args.arquitectura, "version": args.version, "clases": clases,
         "clase_objetivo": args.clase_objetivo, "temperatura": temperatura, "tamano": TAMANO,
         "umbral_recomendado": args.umbral,
         "media": MEDIA, "desviacion": DESVIACION,
