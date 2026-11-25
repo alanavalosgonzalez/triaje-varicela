@@ -3,9 +3,10 @@
 from datetime import date
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QScrollArea, QSpinBox, QStackedWidget, QVBoxLayout, QWidget,
+    QScrollArea, QStackedWidget, QVBoxLayout, QWidget,
 )
 
 from app.core.modelos import Paciente
@@ -124,11 +125,11 @@ class PaginaTriaje(QWidget):
         formulario = QFormLayout()
         self.campo_alias = QLineEdit()
         self.campo_alias.setPlaceholderText("Por ejemplo: Mi hijo")
-        self.campo_anio = QSpinBox()
-        self.campo_anio.setRange(1900, date.today().year)
-        self.campo_anio.setSpecialValueText("Prefiero no decirlo")
-        self.campo_anio.setMinimum(1899)
-        self.campo_anio.setValue(1899)
+        # Campo de texto que solo admite años válidos; vacío significa "prefiero no decirlo".
+        self.campo_anio = QLineEdit()
+        self.campo_anio.setValidator(QIntValidator(1900, date.today().year, self.campo_anio))
+        self.campo_anio.setMaxLength(4)
+        self.campo_anio.setPlaceholderText("Ej.: 2018 (opcional: déjalo vacío si prefieres no decirlo)")
         self.campo_vacunado = combo_si_no()
         self.campo_antecedente = combo_si_no()
         self.campo_contacto = combo_si_no()
@@ -234,6 +235,10 @@ class PaginaTriaje(QWidget):
     def _siguiente(self) -> None:
         """Avanza si todas las preguntas del paso están respondidas; en el último paso lanza la evaluación."""
         paso = self.pasos.currentIndex()
+        if paso == 0 and self.campo_anio.text() and self.anio_nacimiento() is None:
+            self.mensaje.setText(f"Escribe un año de nacimiento completo entre 1900 y {date.today().year}, o déjalo vacío.")
+            self.campo_anio.setFocus()
+            return
         sin_responder = [c for c in self._codigos_del_paso(paso) if not self.filas[c].valor()[0]]
         if sin_responder:
             self.mensaje.setText(f"Faltan {len(sin_responder)} preguntas por responder (puedes elegir «No sé»).")
@@ -246,6 +251,13 @@ class PaginaTriaje(QWidget):
             return
         self.pasos.setCurrentIndex(paso + 1)
         self._actualizar_navegacion()
+
+    def anio_nacimiento(self) -> int | None:
+        """Año escrito si es válido (4 cifras dentro del rango); None si está vacío o incompleto."""
+        texto = self.campo_anio.text().strip()
+        if len(texto) == 4 and texto.isdigit() and 1900 <= int(texto) <= date.today().year:
+            return int(texto)
+        return None
 
     def _actualizar_contadores(self) -> None:
         """Muestra cuántas preguntas lleva respondidas cada paso."""
@@ -270,10 +282,10 @@ class PaginaTriaje(QWidget):
 
     def _evaluar(self) -> None:
         """Arma el paciente y las respuestas y ejecuta Prolog y R en segundo plano."""
-        anio = self.campo_anio.value()
+        anio = self.anio_nacimiento()
         self.paciente = Paciente(
             alias=self.campo_alias.text().strip() or "anónimo",
-            fecha_nacimiento=date(anio, 7, 1) if anio > 1899 else None,  # Mitad de año: edad aproximada.
+            fecha_nacimiento=date(anio, 7, 1) if anio else None,  # Mitad de año: edad aproximada.
             embarazo=self.campo_embarazo.isChecked(),
             inmunocompromiso=self.campo_inmuno.isChecked(),
             vacunado_varicela=self.campo_vacunado.currentData(),
@@ -327,7 +339,7 @@ class PaginaTriaje(QWidget):
         for fila in self.filas.values():
             fila.limpiar()
         self.campo_alias.clear()
-        self.campo_anio.setValue(1899)
+        self.campo_anio.clear()
         for combo in (self.campo_vacunado, self.campo_antecedente, self.campo_contacto):
             combo.setCurrentIndex(2)
         self.campo_embarazo.setChecked(False)

@@ -84,7 +84,7 @@ erDiagram
 
 ## 5. Geolocalización
 
-Un equipo de escritorio no suele tener GPS. Orden de intento: (1) servicio de ubicación de Windows si el usuario lo permite, (2) ubicación aproximada por IP, (3) dirección escrita por el usuario y geocodificada con `geopy`/Nominatim. Luego se consulta Overpass por `amenity=hospital|clinic|doctors` en un radio dado y se calcula la distancia.
+Un equipo de escritorio no suele tener GPS. El usuario elige entre: (1) el servicio de ubicación de Windows (redes WiFi cercanas, unos 100 m de precisión), (2) una dirección escrita, geocodificada con `geopy`/Nominatim, o (3) hacer clic en el mapa donde está. Se descartó la ubicación por IP: suele indicar la ciudad del proveedor de internet, no la del usuario. Luego se buscan hospitales, clínicas y consultorios con Nominatim (con Overpass como respaldo) y se calcula la distancia; un clic en el mapa de resultados repite la búsqueda desde ese punto.
 
 ## 6. Plan por fases
 

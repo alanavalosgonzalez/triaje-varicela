@@ -64,5 +64,31 @@ class PruebasMapa(unittest.TestCase):
         self.assertIn("Tu ubicación", html)
 
 
+class PruebasClicEnMapa(unittest.TestCase):
+    """Comprueba el mensaje que el mapa envía a la app al hacer clic."""
+
+    def test_interpretar_clic_valido(self):
+        """Un mensaje con el prefijo y coordenadas válidas se convierte en (latitud, longitud)."""
+        from app.geo.mapa import PREFIJO_CLIC, interpretar_clic
+
+        self.assertEqual(interpretar_clic(f"{PREFIJO_CLIC}19.432600,-99.133200"), (19.4326, -99.1332))
+
+    def test_ignora_otros_mensajes(self):
+        """Mensajes ajenos, mal formados o con coordenadas imposibles se ignoran."""
+        from app.geo.mapa import PREFIJO_CLIC, interpretar_clic
+
+        self.assertIsNone(interpretar_clic("otro mensaje de la consola"))
+        self.assertIsNone(interpretar_clic(f"{PREFIJO_CLIC}abc,def"))
+        self.assertIsNone(interpretar_clic(f"{PREFIJO_CLIC}95,10"))
+
+    def test_mapas_avisan_los_clics(self):
+        """Tanto el mapa para elegir como el de resultados incluyen el código que avisa de los clics."""
+        from app.geo.mapa import PREFIJO_CLIC, mapa_seleccion_html
+
+        self.assertIn(PREFIJO_CLIC, mapa_seleccion_html())
+        centros = interpretar_respuesta(RESPUESTA_OVERPASS, LAT, LON)
+        self.assertIn(PREFIJO_CLIC, mapa_html(Ubicacion(LAT, LON, "Zócalo", "direccion"), centros))
+
+
 if __name__ == "__main__":
     unittest.main()
