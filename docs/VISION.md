@@ -80,6 +80,21 @@ Promediar el análisis de la foto original y en espejo (*test-time augmentation*
 
 Antes de analizarla se rechazan las fotos demasiado pequeñas, oscuras, sobreexpuestas o borrosas. Los límites se **calibraron con el propio dataset**, por debajo del percentil 1 de cada medida. Una primera versión, con límites puestos a ojo, rechazaba el 45 % de las fotos válidas por "borrosas", porque la piel es una superficie suave con pocos bordes. La nitidez se mide siempre sobre la foto reducida a 224 px, para que sea comparable entre resoluciones.
 
+## Modelo publicado (versión 2.0): DINOv2 + regresión logística
+
+Tras la versión 1.2 se compararon dos mejoras más con la misma validación cruzada de 5 pliegues (364 fotos de prueba):
+
+| Modelo | Exactitud | Sensibilidad varicela | Especificidad | Umbral 0.60: no concluyente | Umbral 0.60: varicelas detectadas | Tamaño |
+|---|---|---|---|---|---|---|
+| ConvNeXt-Tiny (v1.2) | 79.4 % | 65.5 % | 95.5 % | 21 % | 69 % | 27 MB |
+| A: conjunto de 3 ConvNeXt por pliegue | 83.0 % | 64.4 % | 96.4 % | 19 % | 69 % | ~80 MB |
+| **B: DINOv2-Small congelado + regresión logística (v2.0)** | **82.7 %** | **70.0 %** | 95.1 % | **20 %** | **88 %** | **21 MB** |
+
+- **A (conjunto):** cada pliegue entrenó 3 modelos con distintas semillas y se promediaron. Mejora la exactitud global, pero no la detección de varicela, y el modelo sería 4 veces más pesado. Descartado.
+- **B (elegido):** DINOv2 (Meta, preentrenado con 142 millones de imágenes) se usa **sin modificar**, solo para convertir cada foto en un vector de características, y encima se entrena una regresión logística (`entrenamiento/experimento_dinov2.py`). Con tan pocas fotos de varicela, ajustar solo un clasificador lineal evita memorizar. La regularización (C = 0.01) se eligió comparando C = 0.003, 0.01 y 0.03 en la validación cruzada; DINOv2-Base no mejoró al Small.
+- El modelo publicado se entrenó con las 755 fotos de MSLD (`entrenamiento/exportar_dinov2.py`), se exportó como un único ONNX (red + normalización + capa lineal, verificado contra scikit-learn) y se cuantizó a 8 bits: 21 MB y unos 35 ms por foto en el procesador.
+- La regla de seguridad (recomendar médico si la foto parece cualquier enfermedad) se mantiene.
+
 ## Experimento: agregar un segundo dataset (MSID)
 
 Para reducir los resultados no concluyentes se probó añadir el *Monkeypox Skin Images Dataset* (MSID) solo al entrenamiento.
