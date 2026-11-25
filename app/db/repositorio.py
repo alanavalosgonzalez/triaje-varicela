@@ -162,6 +162,28 @@ def guardar_derivaciones(conexion: sqlite3.Connection, consulta_id: int, origen:
         )
 
 
+def historial_general(conexion: sqlite3.Connection, limite: int = 200) -> list[sqlite3.Row]:
+    """Devuelve las consultas más recientes de todos los pacientes con su dictamen y qué módulos se usaron."""
+    return conexion.execute(
+        """SELECT c.id, datetime(c.iniciada_en, 'localtime') AS fecha_local, c.estado, p.alias,
+                  r.dictamen_final, r.probabilidad_r,
+                  (SELECT COUNT(*) FROM mensajes_chat m WHERE m.consulta_id = c.id AND m.rol = 'usuario') AS mensajes,
+                  (SELECT a.decision FROM analisis_imagen a WHERE a.consulta_id = c.id ORDER BY a.id DESC LIMIT 1) AS imagen
+           FROM consultas c
+           JOIN pacientes p ON p.id = c.paciente_id
+           LEFT JOIN resultados_triaje r ON r.consulta_id = c.id
+           ORDER BY c.iniciada_en DESC, c.id DESC
+           LIMIT ?""",
+        (limite,),
+    ).fetchall()
+
+
+def eliminar_consulta(conexion: sqlite3.Connection, consulta_id: int) -> None:
+    """Borra una consulta y, por las claves foráneas en cascada, sus respuestas, resultados, mensajes e imágenes."""
+    with conexion:
+        conexion.execute("DELETE FROM consultas WHERE id = ?", (consulta_id,))
+
+
 def historial(conexion: sqlite3.Connection, paciente_id: int) -> list[sqlite3.Row]:
     """Devuelve las consultas del paciente con su dictamen, de la más reciente a la más antigua."""
     return conexion.execute(

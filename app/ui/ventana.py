@@ -6,8 +6,11 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
+from app.core import diagnostico
+from app.ui import estilos
 from app.ui.comun import Sesion
 from app.ui.pagina_chat import PaginaChat
+from app.ui.pagina_historial import PaginaHistorial
 from app.ui.pagina_imagen import PaginaImagen
 from app.ui.pagina_info import PaginaInfo
 from app.ui.pagina_mapa import PaginaMapa
@@ -63,6 +66,7 @@ class VentanaPrincipal(QMainWindow):
             ("Análisis de imagen", PaginaImagen(self.sesion)),
             ("Centro Informativo", PaginaInfo(self.sesion)),
             ("Centros cercanos", self.pagina_mapa),
+            ("Historial", PaginaHistorial(self.sesion)),
         ]:
             self.menu.addItem(QListWidgetItem(nombre))
             self.paginas.addWidget(pagina)
@@ -81,6 +85,17 @@ class VentanaPrincipal(QMainWindow):
         self.pagina_triaje.ver_mapa.connect(lambda: self.menu.setCurrentRow(4))
         self.sesion.derivacion.connect(self._habilitar_mapa)
         self.statusBar().showMessage("Datos guardados solo en este equipo.")
+        self._mostrar_diagnostico()
+
+    def _mostrar_diagnostico(self) -> None:
+        """Muestra en la barra inferior qué componentes están disponibles; el detalle aparece al pasar el mouse."""
+        componentes = diagnostico.revisar()
+        texto = "   ".join(f"{'✓' if c.disponible else '✗'} {c.nombre}" for c in componentes)
+        indicador = QLabel(texto)
+        indicador.setToolTip("\n".join(f"{c.nombre}: {c.detalle}" for c in componentes))
+        if not all(c.disponible for c in componentes):
+            indicador.setStyleSheet(f"color: {estilos.AMBAR}; font-weight: 600;")
+        self.statusBar().addPermanentWidget(indicador)
 
     def _habilitar_mapa(self, origen: str) -> None:
         """Desbloquea el mapa y avisa una sola vez de forma visible."""

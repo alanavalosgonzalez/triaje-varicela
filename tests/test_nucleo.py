@@ -60,6 +60,16 @@ class PruebasBaseDatos(unittest.TestCase):
                 conexion.close()
             self.assertEqual(total, 17)
 
+    def test_historial_general_y_borrado(self):
+        """El historial reúne consultas con sus mensajes, y borrar una consulta elimina sus datos en cascada."""
+        paciente_id = repositorio.crear_paciente(self.conexion, Paciente(alias="Luis"))
+        consulta_id = repositorio.crear_consulta(self.conexion, paciente_id, None)
+        repositorio.guardar_mensaje(self.conexion, consulta_id, "usuario", "Hola")
+        filas = repositorio.historial_general(self.conexion)
+        self.assertEqual((filas[0]["alias"], filas[0]["mensajes"]), ("Luis", 1))
+        repositorio.eliminar_consulta(self.conexion, consulta_id)
+        self.assertEqual(self.conexion.execute("SELECT COUNT(*) FROM mensajes_chat").fetchone()[0], 0)
+
     def test_paciente_y_consulta(self):
         """Se puede crear un paciente, abrirle una consulta y verla en su historial."""
         paciente_id = repositorio.crear_paciente(self.conexion, Paciente(alias="Ana", vacunado_varicela=None))
