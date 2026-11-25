@@ -18,6 +18,9 @@ def conectar(ruta: Path | str | None = None) -> sqlite3.Connection:
     conexion.execute("PRAGMA foreign_keys = ON")
     # El esquema usa CREATE TABLE IF NOT EXISTS, así que aplicarlo varias veces es seguro.
     conexion.executescript(config.ESQUEMA_SQL.read_text(encoding="utf-8"))
+    # El contenido del Centro Informativo solo se carga la primera vez, cuando la tabla está vacía.
+    if conexion.execute("SELECT COUNT(*) FROM catalogo_informacion").fetchone()[0] == 0:
+        conexion.executescript(config.SEED_INFORMACION.read_text(encoding="utf-8"))
     return conexion
 
 
@@ -61,6 +64,14 @@ def catalogo_sintomas(conexion: sqlite3.Connection) -> list[sqlite3.Row]:
     """Devuelve el catálogo de síntomas en el orden en que se preguntan."""
     return conexion.execute(
         "SELECT id, codigo, nombre, tipo FROM catalogo_sintomas ORDER BY orden"
+    ).fetchall()
+
+
+def informacion(conexion: sqlite3.Connection, seccion: str) -> list[sqlite3.Row]:
+    """Devuelve los artículos de una sección del Centro Informativo (QUE_ES, CUIDADOS, AISLAMIENTO o MITOS)."""
+    return conexion.execute(
+        "SELECT titulo, contenido_md, fuente, fecha_revision FROM catalogo_informacion WHERE seccion = ? ORDER BY orden",
+        (seccion,),
     ).fetchall()
 
 
@@ -125,6 +136,30 @@ def guardar_mensaje(
         if umbral_duda:
             conexion.execute("UPDATE consultas SET estado = 'DERIVADA' WHERE id = ?", (consulta_id,))
     return cursor.lastrowid
+
+
+def guardar_analisis_imagen(conexion: sqlite3.Connection, consulta_id: int, ruta_imagen: str, resultado) -> int:
+    """Guarda el resultado de un análisis de imagen (un ResultadoImagen de app.vision.analizador)."""
+    with conexion:
+        cursor = conexion.execute(
+            """INSERT INTO analisis_imagen (consulta_id, ruta_imagen, sha256, modelo, version_modelo,
+                                            clase_predicha, confianza, umbral_usado, decision)
+               VALUES (?, ?, ?, 'varicela.onnx', ?, ?, ?, ?, ?)""",
+            (consulta_id, ruta_imagen, resultado.sha256, resultado.version_modelo, resultado.clase_predicha,
+             resultado.confianza, resultado.umbral, resultado.decision),
+        )
+    return cursor.lastrowid
+
+
+def guardar_derivaciones(conexion: sqlite3.Connection, consulta_id: int, origen: str, centros: list) -> None:
+    """Guarda los centros de salud mostrados al usuario (objetos CentroSalud de app.geo.centros)."""
+    with conexion:
+        conexion.executemany(
+            """INSERT INTO derivaciones (consulta_id, origen, nombre_centro, tipo_centro, latitud, longitud,
+                                         distancia_km, telefono)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            [(consulta_id, origen, c.nombre, c.tipo, c.latitud, c.longitud, c.distancia_km, c.telefono) for c in centros],
+        )
 
 
 def historial(conexion: sqlite3.Connection, paciente_id: int) -> list[sqlite3.Row]:
