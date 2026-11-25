@@ -110,7 +110,55 @@ def _verificado(p: QPainter) -> None:
     p.drawPolyline([QPointF(8, 12.5), QPointF(11, 15.5), QPointF(16.5, 9.5)])
 
 
+def _lupa(p: QPainter) -> None:
+    """Lupa (para "¿Qué es?")."""
+    p.drawEllipse(QPointF(10.5, 10.5), 6.5, 6.5)
+    p.drawLine(QPointF(15.3, 15.3), QPointF(20.5, 20.5))
+
+
+def _casa(p: QPainter) -> None:
+    """Casa con una cruz (cuidados en casa)."""
+    p.drawPolyline([QPointF(3, 11.5), QPointF(12, 3.5), QPointF(21, 11.5)])
+    p.drawPolyline([QPointF(5.5, 9.5), QPointF(5.5, 20.5), QPointF(18.5, 20.5), QPointF(18.5, 9.5)])
+    p.drawLine(QPointF(12, 11), QPointF(12, 17))
+    p.drawLine(QPointF(9, 14), QPointF(15, 14))
+
+
+def _escudo(p: QPainter) -> None:
+    """Escudo (prevención del contagio)."""
+    camino = QPainterPath(QPointF(12, 2.5))
+    camino.lineTo(QPointF(20, 5.5))
+    camino.cubicTo(QPointF(20, 13), QPointF(17, 18.5), QPointF(12, 21.5))
+    camino.cubicTo(QPointF(7, 18.5), QPointF(4, 13), QPointF(4, 5.5))
+    camino.closeSubpath()
+    p.drawPath(camino)
+    p.drawPolyline([QPointF(8.5, 12), QPointF(11, 14.5), QPointF(15.5, 9.5)])
+
+
+def _pregunta(p: QPainter) -> None:
+    """Signo de interrogación dentro de un círculo (mitos y realidades)."""
+    p.drawEllipse(QPointF(12, 12), 9, 9)
+    camino = QPainterPath(QPointF(9.2, 9.5))
+    camino.cubicTo(QPointF(9.2, 6), QPointF(15, 6), QPointF(14.8, 9.5))
+    camino.cubicTo(QPointF(14.6, 11.8), QPointF(12, 12), QPointF(12, 14.2))
+    p.drawPath(camino)
+    p.drawPoint(QPointF(12, 17.3))
+
+
+def _aceptar(p: QPainter) -> None:
+    """Marca de verificación sola (algo recomendado)."""
+    p.drawPolyline([QPointF(4.5, 12.5), QPointF(9.5, 17.5), QPointF(19.5, 6.5)])
+
+
+def _rechazar(p: QPainter) -> None:
+    """Equis (algo que se debe evitar)."""
+    p.drawLine(QPointF(6, 6), QPointF(18, 18))
+    p.drawLine(QPointF(18, 6), QPointF(6, 18))
+
+
 DIBUJOS = {
+    "lupa": _lupa, "casa": _casa, "escudo": _escudo, "pregunta": _pregunta,
+    "aceptar": _aceptar, "rechazar": _rechazar,
     "cuestionario": _cuestionario, "chat": _chat, "imagen": _imagen, "informacion": _informacion,
     "mapa": _mapa, "historial": _historial, "configuracion": _configuracion, "cruz": _cruz,
     "alerta": _alerta, "verificado": _verificado,

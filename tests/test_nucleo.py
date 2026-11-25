@@ -58,7 +58,7 @@ class PruebasBaseDatos(unittest.TestCase):
                 conexion = repositorio.conectar(ruta)
                 total = conexion.execute("SELECT COUNT(*) FROM catalogo_informacion").fetchone()[0]
                 conexion.close()
-            self.assertEqual(total, 17)
+            self.assertEqual(total, 20)  # 17 artículos iniciales y 3 realidades añadidas después.
 
     def test_historial_general_y_borrado(self):
         """El historial reúne consultas con sus mensajes, y borrar una consulta elimina sus datos en cascada."""

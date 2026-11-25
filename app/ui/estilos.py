@@ -129,10 +129,73 @@ QPushButton#opcion[tipo="nose"]:checked {{ background: #E3A13B; color: {BLANCO};
 QFrame#aviso_alarma {{ background: {ROJO_FONDO}; border: 1px solid {ROJO}; border-radius: 12px; }}
 QFrame#aviso_alarma QLabel {{ background: transparent; color: {ROJO}; font-weight: 600; }}
 QLabel#contador {{ color: {TEAL}; font-weight: 600; }}
+QFrame#portada_info {{
+    border-radius: 16px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {AZUL_CLINICO}, stop:0.6 #136A8F, stop:1 {TEAL});
+}}
+QFrame#portada_info QLabel {{ background: transparent; color: {BLANCO}; }}
+QLabel#portada_titulo {{ font-size: 18pt; font-weight: 700; }}
+QLabel#portada_texto {{ color: rgba(255, 255, 255, 0.88); font-size: 10pt; }}
+QPushButton#seccion_info {{
+    background: {BLANCO}; color: {AZUL_OSCURO}; border: 2px solid #E3EAF2; border-radius: 14px;
+    padding: 12px 14px; text-align: left; font-weight: 600;
+}}
+QPushButton#seccion_info:hover {{ background: #F3F8FC; border: 2px solid #C9DCEB; }}
+QPushButton#seccion_info:checked {{ background: #EEF7F8; }}
+QFrame#articulo, QFrame#tarjeta_interactiva {{ background: {BLANCO}; border: 1px solid #E3EAF2; border-radius: 14px; }}
+QFrame#articulo_alarma {{ background: {BLANCO}; border: 2px solid {ROJO}; border-radius: 14px; }}
+QFrame#articulo QLabel, QFrame#articulo_alarma QLabel, QFrame#tarjeta_interactiva QLabel {{ background: transparent; }}
+QFrame#articulo QWidget#articulo_cuerpo, QFrame#articulo_alarma QWidget#articulo_cuerpo {{ background: transparent; }}
+QFrame#articulo_encabezado {{ background: transparent; border: none; border-radius: 14px; }}
+QFrame#articulo_encabezado:hover {{ background: #F5F9FC; }}
+QLabel#articulo_titulo {{ font-size: 11pt; font-weight: 600; color: {AZUL_OSCURO}; }}
+QFrame#articulo_alarma QLabel#articulo_titulo {{ color: {ROJO}; }}
+QLabel#articulo_texto {{ font-size: 10pt; color: {PIZARRA}; }}
+QLabel#articulo_fuente {{ font-size: 8.5pt; color: {PIZARRA_SUAVE}; font-style: italic; padding-top: 4px; }}
+QLabel#articulo_accion {{ color: {TEAL}; font-weight: 600; }}
+QLabel#articulo_numero {{ background: {AZUL_CLINICO}; color: {BLANCO}; border-radius: 12px; font-weight: 700; }}
+QFrame#leyenda {{ background: #F0F6FA; border-radius: 10px; }}
+QFrame#leyenda QLabel {{ background: transparent; color: {PIZARRA_SUAVE}; }}
+QFrame#nodo_fase {{ background: #F7FAFC; border: 2px solid #E3EAF2; border-radius: 14px; }}
+QFrame#nodo_fase:hover {{ border: 2px solid #B9D7E0; background: {BLANCO}; }}
+QFrame#nodo_fase[activo="true"] {{ border: 2px solid {TEAL}; background: {TEAL_FONDO}; }}
+QFrame#nodo_fase QLabel, QFrame#nodo_fase QWidget {{ background: transparent; }}
+QLabel#nodo_titulo {{ font-weight: 600; color: {AZUL_OSCURO}; }}
+QLabel#nodo_duracion {{ color: {PIZARRA_SUAVE}; font-size: 9pt; }}
+QLabel#fase_explicacion {{
+    background: #F3F8FB; border-left: 5px solid {TEAL}; border-radius: 3px; padding: 12px 14px; margin-top: 8px;
+}}
+QSlider::groove:horizontal {{ height: 6px; background: #DCE6F0; border-radius: 3px; }}
+QSlider::handle:horizontal {{
+    width: 20px; height: 20px; margin: -8px 0; border-radius: 10px; background: {AZUL_CLINICO}; border: 3px solid {BLANCO};
+}}
+QSlider::sub-page:horizontal {{ background: #9FC7D9; border-radius: 3px; }}
+QFrame#quiz {{ background: {BLANCO}; border: 2px solid #E3EAF2; border-radius: 16px; }}
+QFrame#quiz:hover {{ border: 2px solid #C9DCEB; }}
+QFrame#quiz[estado="acierto"] {{ border: 2px solid {TEAL}; background: #F5FBFB; }}
+QFrame#quiz[estado="error"] {{ border: 2px solid #E3A13B; background: #FFFBF1; }}
+QFrame#quiz QLabel, QFrame#quiz QStackedWidget, QFrame#quiz QWidget {{ background: transparent; }}
+QLabel#quiz_etiqueta {{ color: {AMBAR}; font-weight: 700; font-size: 9pt; letter-spacing: 1px; }}
+QLabel#quiz_afirmacion {{ font-size: 11.5pt; font-weight: 600; color: {AZUL_OSCURO}; }}
+QLabel#quiz_veredicto {{ border-radius: 10px; padding: 4px 12px; font-weight: 700; color: {BLANCO}; }}
+QLabel#quiz_veredicto[tipo="mito"] {{ background: {ROJO}; }}
+QLabel#quiz_veredicto[tipo="realidad"] {{ background: {TEAL}; }}
+QLabel#quiz_resultado {{ font-weight: 700; }}
+QLabel#quiz_recordatorio {{ color: {PIZARRA_SUAVE}; font-style: italic; }}
+QLabel#quiz_resultado[acierto="true"] {{ color: {TEAL}; }}
+QLabel#quiz_resultado[acierto="false"] {{ color: {AMBAR}; }}
 QLabel#globo {{
     background: {BLANCO}; color: {AZUL_OSCURO}; border: 1px solid #CFE3EE; border-radius: 14px; padding: 10px 12px;
 }}
 """
+
+
+def aclarar(color: str, cantidad: float = 0.86) -> str:
+    """Mezcla un color con blanco (cantidad = proporción de blanco) para obtener un fondo suave del mismo tono."""
+    c = color.lstrip("#")
+    r, g, b = (int(c[i:i + 2], 16) for i in (0, 2, 4))
+    mezcla = [round(v + (255 - v) * cantidad) for v in (r, g, b)]
+    return "#" + "".join(f"{v:02X}" for v in mezcla)
 
 
 def caja_resultado(color: str, fondo: str) -> str:
