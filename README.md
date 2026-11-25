@@ -7,7 +7,7 @@ Aplicación de escritorio para el pre-diagnóstico, triaje y orientación sobre 
 ## Estado del proyecto
 
 - [x] Fase 1 — Arquitectura, base de datos y estructura
-- [ ] Fase 2 — Prolog (reglas) y R (estadística)
+- [x] Fase 2 — Prolog (reglas) y R (estadística)
 - [ ] Fase 3 — Núcleo Python y base de datos
 - [ ] Fase 4 — Asistente IA y visión artificial
 - [ ] Fase 5 — Interfaz gráfica y mapa
@@ -26,6 +26,15 @@ python -m venv .venv
 pip install -r requirements.txt
 copy .env.example .env
 ```
+
+## Pruebas
+
+```powershell
+& "C:\Program Files\swipl\bin\swipl.exe" -g run_tests -t halt prolog/test_varicela.pl
+& "C:\Program Files\R\R-4.6.2\bin\Rscript.exe" r_scripts/test_probabilidad.R
+```
+
+(Si `swipl` y `Rscript` están en tu PATH, basta con escribir su nombre.)
 
 ## Estructura
 
