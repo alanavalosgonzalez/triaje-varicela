@@ -40,6 +40,12 @@ copy .env.example .env
 python -m unittest -v
 ```
 
+## Ejecutar la aplicación
+
+```powershell
+python -m app
+```
+
 ## Demo en consola
 
 ```powershell
