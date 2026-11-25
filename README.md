@@ -12,13 +12,26 @@ Aplicación de escritorio para el pre-diagnóstico, triaje y orientación sobre 
 - [x] Fase 4 — Asistente IA y visión artificial ([método y resultados del modelo](docs/VISION.md))
 - [x] Fase 5 — Interfaz gráfica y mapa
 
-## Requisitos
+## Instalación rápida (Windows 10/11)
 
-- Python 3.11 o superior
-- [SWI-Prolog 9.x](https://www.swi-prolog.org/download/stable) (marcar "Add to PATH" al instalar)
-- [R 4.x](https://cran.r-project.org/) con `Rscript` en el PATH
+1. Descarga el proyecto (botón verde **Code → Download ZIP** o `git clone`) y colócalo en una ruta corta, por ejemplo `Documentos\triaje-varicela`.
+2. Abre PowerShell en esa carpeta y ejecuta:
 
-## Instalación (Windows / PowerShell)
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File instalar.ps1
+   ```
+
+   El script instala lo que falte (Python, SWI-Prolog y R con `winget`), prepara las librerías, descarga el modelo de imagen,
+   comprueba todo con las pruebas automáticas y crea el acceso directo **Triaje Varicela** en el escritorio.
+3. Abre la app con ese acceso directo (o con `iniciar.cmd`).
+4. Para usar el asistente virtual, pulsa **Configurar asistente** y pega tu clave gratuita de
+   [Google AI Studio](https://aistudio.google.com/apikey). Cada persona usa su propia clave; nunca la compartas.
+
+La barra inferior de la app indica con ✓ / ✗ qué componentes están listos.
+
+## Instalación manual
+
+Requisitos: Python 3.11+, [SWI-Prolog 9+](https://www.swi-prolog.org/download/stable) y [R 4+](https://cran.r-project.org/).
 
 ```powershell
 python -m venv .venv

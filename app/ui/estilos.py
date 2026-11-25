@@ -75,6 +75,8 @@ QPushButton {{
 }}
 QPushButton:hover {{ background: {AZUL_OSCURO}; }}
 QPushButton:disabled {{ background: #A0AEC0; }}
+QPushButton#encabezado {{ background: transparent; color: {BLANCO}; border: 1px solid {BLANCO}; padding: 5px 12px; }}
+QPushButton#encabezado:hover {{ background: {AZUL_OSCURO}; }}
 QPushButton#secundario {{ background: {BLANCO}; color: {AZUL_CLINICO}; border: 1px solid {AZUL_CLINICO}; }}
 QPushButton#secundario:hover {{ background: {TEAL_FONDO}; }}
 QLineEdit, QComboBox, QSpinBox, QTextBrowser, QTableWidget {{

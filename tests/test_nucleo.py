@@ -70,6 +70,22 @@ class PruebasBaseDatos(unittest.TestCase):
         repositorio.eliminar_consulta(self.conexion, consulta_id)
         self.assertEqual(self.conexion.execute("SELECT COUNT(*) FROM mensajes_chat").fetchone()[0], 0)
 
+    def test_guardar_en_env(self):
+        """Guardar una variable reemplaza su línea, conserva las demás y la crea si no existía."""
+        import os
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as carpeta:
+            archivo = Path(carpeta) / ".env"
+            archivo.write_text("# comentario\nDB_PATH=data/x.db\nPRUEBA_CLAVE=vieja\n", encoding="utf-8")
+            config.guardar_en_env("PRUEBA_CLAVE", "nueva", archivo)
+            config.guardar_en_env("PRUEBA_OTRA", "1", archivo)
+            self.assertEqual(archivo.read_text(encoding="utf-8"),
+                             "# comentario\nDB_PATH=data/x.db\nPRUEBA_CLAVE=nueva\nPRUEBA_OTRA=1\n")
+            self.assertEqual(os.environ.pop("PRUEBA_CLAVE"), "nueva")
+            os.environ.pop("PRUEBA_OTRA")
+
     def test_paciente_y_consulta(self):
         """Se puede crear un paciente, abrirle una consulta y verla en su historial."""
         paciente_id = repositorio.crear_paciente(self.conexion, Paciente(alias="Ana", vacunado_varicela=None))
