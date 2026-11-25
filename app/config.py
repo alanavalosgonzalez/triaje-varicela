@@ -18,6 +18,7 @@ except ImportError:
 
 # Rutas de los recursos del proyecto.
 ESQUEMA_SQL = RAIZ / "database" / "schema.sql"
+SEED_INFORMACION = RAIZ / "database" / "seed_informacion.sql"
 PROLOG_CLI = RAIZ / "prolog" / "cli.pl"
 R_SCRIPT = RAIZ / "r_scripts" / "probabilidad.R"
 DB_PATH = RAIZ / os.getenv("DB_PATH", "data/triaje_varicela.db")

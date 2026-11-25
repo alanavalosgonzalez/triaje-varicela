@@ -11,6 +11,33 @@ from app.db import repositorio
 DICTAMENES_CON_MAPA = {"ALTA_PROBABILIDAD", "DERIVAR_MEDICO"}
 
 
+# Descripciones legibles de los códigos que devuelven Prolog y R.
+DESCRIPCIONES = {
+    "fiebre_moderada": "fiebre moderada", "malestar_general": "malestar general", "perdida_apetito": "pérdida de apetito",
+    "cefalea": "dolor de cabeza", "maculas": "manchas rojas", "papulas": "granitos", "vesiculas": "ampollas con líquido",
+    "costras": "costras", "lesiones_simultaneas": "lesiones en distintas fases a la vez",
+    "inicio_tronco": "erupción iniciada en tronco o cara", "prurito": "comezón", "contacto_previo": "contacto con un caso",
+    "dificultad_respiratoria": "dificultad para respirar", "fiebre_alta_persistente": "fiebre alta persistente",
+    "lesiones_infectadas": "lesiones infectadas", "confusion_rigidez": "confusión o rigidez de nuca",
+    "erupcion": "erupción en la piel", "prodromo": "síntomas generales previos",
+    "sin_patron_compatible": "no hay un patrón compatible con varicela",
+}
+NOMBRES_DICTAMEN = {
+    "NEGATIVO_BAJO_RIESGO": "bajo riesgo", "SOSPECHA_INICIAL": "sospecha inicial",
+    "ALTA_PROBABILIDAD": "alta probabilidad", "DERIVAR_MEDICO": "derivar al médico",
+}
+
+
+def describir(codigo: str) -> str:
+    """Convierte un código o una razón de Prolog (por ejemplo signos_alarma([x])) en texto para el usuario."""
+    if codigo.startswith("signos_alarma(["):
+        signos = codigo[len("signos_alarma(["):-2].split(",")
+        return "signos de alarma: " + ", ".join(DESCRIPCIONES.get(s.strip(), s.strip()) for s in signos)
+    if codigo.startswith("datos_ambiguos("):
+        return f"{codigo[len('datos_ambiguos('):-1]} síntomas clave respondidos con «No sé»"
+    return DESCRIPCIONES.get(codigo, codigo.replace("_", " "))
+
+
 def _pct(valor: float) -> str:
     """Formatea una probabilidad sin mostrar 0 % o 100 %, que sugerirían una certeza que el modelo no tiene."""
     if valor > 0.99:
@@ -26,16 +53,17 @@ def combinar(prolog: ResultadoProlog, r: ResultadoR) -> tuple[str, list[str]]:
 
     # Seguridad 1: Prolog ya pidió derivar (signo de alarma o demasiadas dudas).
     if dictamen_prolog == "DERIVAR_MEDICO":
-        return "DERIVAR_MEDICO", [f"Regla lógica: {razon}" for razon in prolog.razones]
+        return "DERIVAR_MEDICO", [f"Se detectaron {describir(razon)}." for razon in prolog.razones]
 
     # Seguridad 2: R detectó signos de alarma.
     if r.banderas_alarma:
-        return "DERIVAR_MEDICO", [f"Signo de alarma: {s}" for s in r.banderas_alarma]
+        return "DERIVAR_MEDICO", [f"Signo de alarma: {describir(s)}." for s in r.banderas_alarma]
 
     # Umbral de duda A: los motores se contradicen por completo (uno dice negativo y el otro alta).
     if abs(GRAVEDAD[dictamen_prolog] - GRAVEDAD[r.categoria]) >= 2:
         return "DERIVAR_MEDICO", [
-            f"Los motores no coinciden (lógico: {dictamen_prolog}, estadístico: {r.categoria})."
+            f"El análisis lógico ({NOMBRES_DICTAMEN[dictamen_prolog]}) y el estadístico "
+            f"({NOMBRES_DICTAMEN[r.categoria]}) no coinciden; conviene que lo valore un médico."
         ]
 
     # Umbral de duda B: el intervalo de confianza abarca desde bajo riesgo hasta alta probabilidad.
@@ -47,14 +75,15 @@ def combinar(prolog: ResultadoProlog, r: ResultadoR) -> tuple[str, list[str]]:
     # Se elige el dictamen más grave de los dos motores (criterio conservador).
     final = max(dictamen_prolog, r.categoria, key=GRAVEDAD.__getitem__)
     motivos = [
-        f"Regla lógica: {dictamen_prolog} ({', '.join(prolog.razones)}).",
+        f"Análisis lógico ({NOMBRES_DICTAMEN[dictamen_prolog]}): "
+        + ", ".join(describir(razon) for razon in prolog.razones) + ".",
         f"Probabilidad estadística: {_pct(r.probabilidad)} "
-        f"(IC 95 %: {_pct(r.ic_inferior)} a {_pct(r.ic_superior)}).",
+        f"(intervalo de confianza del 95 %: {_pct(r.ic_inferior)} a {_pct(r.ic_superior)}).",
     ]
 
     # Paciente de riesgo alto (embarazo, inmunocompromiso, lactante) con cualquier sospecha: derivar.
     if r.riesgo_ponderado == "ALTO" and GRAVEDAD[final] >= GRAVEDAD["SOSPECHA_INICIAL"]:
-        motivos.append("Riesgo de complicaciones ALTO: requiere valoración médica temprana.")
+        motivos.append("Por la edad o el estado de salud, el riesgo de complicaciones es alto: conviene una valoración médica temprana.")
         final = "DERIVAR_MEDICO"
 
     return final, motivos
@@ -99,11 +128,23 @@ def evaluar_triaje(
     )
 
     if conexion is not None:
-        if paciente.id is None:
-            repositorio.crear_paciente(conexion, paciente)
-        consulta_id = repositorio.crear_consulta(conexion, paciente.id, contacto_previo)
-        repositorio.guardar_respuestas(conexion, consulta_id, respuestas)
-        repositorio.guardar_resultado(conexion, consulta_id, resultado)
-        resultado.consulta_id = consulta_id
+        guardar_triaje(conexion, paciente, respuestas, contacto_previo, resultado)
 
     return resultado
+
+
+def guardar_triaje(
+    conexion: sqlite3.Connection,
+    paciente: Paciente,
+    respuestas: dict[str, bool | None],
+    contacto_previo: bool | None,
+    resultado: ResultadoTriaje,
+) -> int:
+    """Guarda paciente (si es nuevo), consulta, respuestas y resultado; separado para poder llamarlo desde el hilo de la interfaz."""
+    if paciente.id is None:
+        repositorio.crear_paciente(conexion, paciente)
+    consulta_id = repositorio.crear_consulta(conexion, paciente.id, contacto_previo)
+    repositorio.guardar_respuestas(conexion, consulta_id, respuestas)
+    repositorio.guardar_resultado(conexion, consulta_id, resultado)
+    resultado.consulta_id = consulta_id
+    return consulta_id

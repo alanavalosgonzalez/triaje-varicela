@@ -1,0 +1,26 @@
+{
+  "arquitectura": "convnext_tiny.fb_in22k_ft_in1k",
+  "version": "vision-1.0.0",
+  "clases": [
+    "mano_pie_boca",
+    "mpox",
+    "sana",
+    "sarampion",
+    "varicela",
+    "viruela_bovina"
+  ],
+  "clase_objetivo": "varicela",
+  "temperatura": 0.8219223618507385,
+  "tamano": 224,
+  "umbral_recomendado": 0.7,
+  "media": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "desviacion": [
+    0.229,
+    0.224,
+    0.225
+  ]
+}

@@ -40,6 +40,36 @@ class PruebasBaseDatos(unittest.TestCase):
         """El esquema carga los 15 síntomas del catálogo."""
         self.assertEqual(len(repositorio.catalogo_sintomas(self.conexion)), 15)
 
+    def test_centro_informativo(self):
+        """Las cuatro secciones del Centro Informativo tienen contenido con fuente y no se duplican al reconectar."""
+        conteos = {s: len(repositorio.informacion(self.conexion, s)) for s in ("QUE_ES", "CUIDADOS", "AISLAMIENTO", "MITOS")}
+        self.assertTrue(all(n > 0 for n in conteos.values()), conteos)
+        self.assertTrue(all(fila["fuente"] for fila in repositorio.informacion(self.conexion, "MITOS")))
+        # El aviso sobre la aspirina es crítico: debe estar en Cuidados y en Mitos.
+        textos = " ".join(f["contenido_md"] for s in ("CUIDADOS", "MITOS") for f in repositorio.informacion(self.conexion, s))
+        self.assertGreaterEqual(textos.lower().count("aspirina"), 2)
+
+    def test_seed_no_se_duplica(self):
+        """Volver a abrir la misma base no vuelve a insertar el contenido informativo."""
+        import tempfile, os
+        with tempfile.TemporaryDirectory() as carpeta:
+            ruta = os.path.join(carpeta, "prueba.db")
+            for _ in range(2):
+                conexion = repositorio.conectar(ruta)
+                total = conexion.execute("SELECT COUNT(*) FROM catalogo_informacion").fetchone()[0]
+                conexion.close()
+            self.assertEqual(total, 17)
+
+    def test_historial_general_y_borrado(self):
+        """El historial reúne consultas con sus mensajes, y borrar una consulta elimina sus datos en cascada."""
+        paciente_id = repositorio.crear_paciente(self.conexion, Paciente(alias="Luis"))
+        consulta_id = repositorio.crear_consulta(self.conexion, paciente_id, None)
+        repositorio.guardar_mensaje(self.conexion, consulta_id, "usuario", "Hola")
+        filas = repositorio.historial_general(self.conexion)
+        self.assertEqual((filas[0]["alias"], filas[0]["mensajes"]), ("Luis", 1))
+        repositorio.eliminar_consulta(self.conexion, consulta_id)
+        self.assertEqual(self.conexion.execute("SELECT COUNT(*) FROM mensajes_chat").fetchone()[0], 0)
+
     def test_paciente_y_consulta(self):
         """Se puede crear un paciente, abrirle una consulta y verla en su historial."""
         paciente_id = repositorio.crear_paciente(self.conexion, Paciente(alias="Ana", vacunado_varicela=None))

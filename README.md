@@ -9,8 +9,8 @@ Aplicación de escritorio para el pre-diagnóstico, triaje y orientación sobre 
 - [x] Fase 1 — Arquitectura, base de datos y estructura
 - [x] Fase 2 — Prolog (reglas) y R (estadística)
 - [x] Fase 3 — Núcleo Python y base de datos
-- [ ] Fase 4 — Asistente IA y visión artificial
-- [ ] Fase 5 — Interfaz gráfica y mapa
+- [x] Fase 4 — Asistente IA y visión artificial ([método y resultados del modelo](docs/VISION.md))
+- [x] Fase 5 — Interfaz gráfica y mapa
 
 ## Requisitos
 
@@ -27,6 +27,12 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
+### Modelo de visión
+
+El archivo del modelo (`varicela.onnx`, 28 MB) no se guarda en git. Descárgalo de la sección
+[Releases](https://github.com/alanavalosgonzalez/triaje-varicela/releases) y colócalo en la carpeta `models/`
+(junto a `models/varicela.json`, que sí está en el repositorio). Sin él, la app funciona igual, excepto el análisis de imagen.
+
 ## Pruebas
 
 ```powershell
@@ -38,6 +44,12 @@ copy .env.example .env
 
 ```powershell
 python -m unittest -v
+```
+
+## Ejecutar la aplicación
+
+```powershell
+python -m app
 ```
 
 ## Demo en consola
