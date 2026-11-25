@@ -42,9 +42,20 @@ copy .env.example .env
 
 ### Modelo de visión
 
-El archivo del modelo (`varicela.onnx`, 28 MB) no se guarda en git. Descárgalo de la sección
-[Releases](https://github.com/alanavalosgonzalez/triaje-varicela/releases) y colócalo en la carpeta `models/`
-(junto a `models/varicela.json`, que sí está en el repositorio). Sin él, la app funciona igual, excepto el análisis de imagen.
+El archivo del modelo (`varicela.onnx`, 21 MB) no se guarda en git. El instalador lo descarga solo; si instalas a mano,
+descárgalo de la sección [Releases](https://github.com/alanavalosgonzalez/triaje-varicela/releases) y colócalo en la carpeta
+`models/` (junto a `models/varicela.json`, que sí está en el repositorio). Sin él, la app funciona igual, excepto el análisis de imagen.
+
+**Resultados** (validación cruzada de 5 pliegues, 364 fotos de prueba; detalles en [docs/VISION.md](docs/VISION.md)):
+
+| Medida | Resultado |
+|---|---|
+| Exactitud global (6 clases) | 82.7 % |
+| Especificidad para varicela | 95.1 % |
+| Sensibilidad para varicela | 70.0 % (88.5 % en las fotos en que emite resultado, con el umbral de 60 %) |
+| Fotos "no concluyentes" con el umbral de 60 % | 20 % |
+
+Es una herramienta orientativa entrenada con fotos públicas de internet: su rendimiento con fotos reales puede ser menor.
 
 ## Pruebas
 
