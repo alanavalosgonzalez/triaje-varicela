@@ -44,6 +44,7 @@ python -m unittest -v
 
 ```powershell
 python -m app.demo_triaje
+python -m app.demo_chat      # Requiere GEMINI_API_KEY en .env.
 ```
 
 ## Estructura

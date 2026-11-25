@@ -26,4 +26,5 @@ python-dotenv>=1.0
 # --- Pruebas automatizadas. ---
 pytest>=8.3
 
-# Nota: el SDK del modelo de lenguaje se agregará en la Fase 3, al elegir proveedor.
+# --- Asistente conversacional con Google Gemini. ---
+google-genai>=1.0

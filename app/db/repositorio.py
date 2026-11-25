@@ -107,6 +107,26 @@ def guardar_resultado(conexion: sqlite3.Connection, consulta_id: int, resultado:
     return cursor.lastrowid
 
 
+def guardar_mensaje(
+    conexion: sqlite3.Connection,
+    consulta_id: int,
+    rol: str,
+    contenido: str,
+    umbral_duda: bool = False,
+    modelo_llm: str | None = None,
+) -> int:
+    """Guarda un mensaje del chat; rol es usuario, asistente o sistema."""
+    with conexion:
+        cursor = conexion.execute(
+            """INSERT INTO mensajes_chat (consulta_id, rol, contenido, umbral_duda, modelo_llm)
+               VALUES (?, ?, ?, ?, ?)""",
+            (consulta_id, rol, contenido, int(umbral_duda), modelo_llm),
+        )
+        if umbral_duda:
+            conexion.execute("UPDATE consultas SET estado = 'DERIVADA' WHERE id = ?", (consulta_id,))
+    return cursor.lastrowid
+
+
 def historial(conexion: sqlite3.Connection, paciente_id: int) -> list[sqlite3.Row]:
     """Devuelve las consultas del paciente con su dictamen, de la más reciente a la más antigua."""
     return conexion.execute(
