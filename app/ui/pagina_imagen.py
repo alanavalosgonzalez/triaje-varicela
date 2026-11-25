@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QLabel, QPushButton, QVB
 from app.db import repositorio
 from app.vision.analizador import requiere_medico
 from app.ui import estilos
+from app.ui.animaciones import aparecer
 from app.ui.comun import Sesion, ejecutar, etiqueta, tarjeta
 
 # Nombres legibles de las clases del modelo.
@@ -92,12 +93,14 @@ class PaginaImagen(QWidget):
                 return
         self.boton_analizar.setEnabled(False)
         self.detalle.setText("Analizando…")
+        self.sesion.guiar("Estoy observando la foto con atención…", "pensando")
         ejecutar(self.analizador.analizar, self._mostrar, self._fallo, self.ruta)
 
     def _fallo(self, mensaje: str) -> None:
         """Muestra el error de lectura de la imagen."""
         self.boton_analizar.setEnabled(True)
         self.detalle.setText(f"No se pudo analizar la foto: {mensaje}")
+        self.sesion.guiar("No pude abrir esa foto. Prueba con otra imagen.", "preocupado")
 
     def _mostrar(self, resultado) -> None:
         """Muestra la decisión, las clases más probables y guarda el análisis."""
@@ -106,6 +109,13 @@ class PaginaImagen(QWidget):
         titulo, color, fondo = DECISIONES[clave]
         self.caja.setText(titulo)
         self.caja.setStyleSheet(estilos.caja_resultado(color, fondo))
+        aparecer(self.caja, duracion=450, desplazamiento=12)
+        if clave in ("COMPATIBLE", "OTRA_ENFERMEDAD"):
+            self.sesion.guiar("Estas lesiones merecen que las vea un médico. Ya activé el mapa de centros cercanos.", "preocupado")
+        elif clave == "INDETERMINADO":
+            self.sesion.guiar("No estoy seguro con esta foto. Prueba con otra más cercana y con buena luz.", "atento")
+        else:
+            self.sesion.guiar("No parece varicela. Aun así, si los síntomas cambian, consulta a un médico.", "feliz")
         principales = sorted(resultado.probabilidades.items(), key=lambda par: -par[1])[:3]
         lista = "".join(f"<li>{CLASES.get(c, c)}: {p:.0%}</li>" for c, p in principales)
         self.detalle.setText(

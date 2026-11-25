@@ -84,12 +84,14 @@ class PaginaMapa(QWidget):
             return
         self._habilitar(False)
         self.nota.setText("Obteniendo tu ubicación…" if modo == "windows" else "Buscando centros de salud en OpenStreetMap…")
+        self.sesion.guiar("Buscando hospitales y clínicas cerca de ti…", "pensando")
         ejecutar(buscar, self._mostrar, self._fallo, modo, texto)
 
     def _fallo(self, mensaje: str) -> None:
         """Muestra el error de red o de dirección no encontrada."""
         self._listo()
         self.nota.setText(f"No se pudo completar la búsqueda: {mensaje}")
+        self.sesion.guiar("No pude completar la búsqueda. Prueba escribiendo tu dirección.", "preocupado")
 
     def _mostrar(self, datos) -> None:
         """Pinta el mapa, llena la tabla y guarda los centros mostrados."""
@@ -105,6 +107,10 @@ class PaginaMapa(QWidget):
             valores = [c.nombre, c.tipo, f"{c.distancia_km:.1f} km", c.telefono or "—", "Sí" if c.urgencias else "—"]
             for columna, valor in enumerate(valores):
                 self.tabla.setItem(fila, columna, QTableWidgetItem(valor))
+        if centros:
+            self.sesion.guiar(f"Encontré {len(centros)} centros. El más cercano está a {centros[0].distancia_km:.1f} km.", "feliz")
+        else:
+            self.sesion.guiar("No encontré centros cerca. Prueba con otra dirección.", "atento")
         if centros:
             repositorio.guardar_derivaciones(self.sesion.conexion, self.sesion.asegurar_consulta(),
                                              self.sesion.origen_derivacion or "TRIAJE", centros)

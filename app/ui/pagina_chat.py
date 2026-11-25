@@ -108,6 +108,7 @@ class PaginaChat(QWidget):
         repositorio.guardar_mensaje(self.sesion.conexion, self.sesion.asegurar_consulta(), "usuario", texto)
         self.boton.setEnabled(False)
         self._inicio_espera = time.monotonic()
+        self.sesion.guiar("Déjame pensar en lo que me cuentas…", "pensando")
         self._actualizar_espera()
         self._contador.start()
         # Se guardan el asistente y su proveedor de ESTE mensaje: si mientras tanto se cambia la clave y se reinicia
@@ -125,6 +126,12 @@ class PaginaChat(QWidget):
         modelo = "filtro_seguridad" if respuesta.urgencia else getattr(proveedor, "modelo_usado", proveedor.nombre_modelo)
         repositorio.guardar_mensaje(self.sesion.conexion, self.sesion.asegurar_consulta(), "asistente",
                                     respuesta.texto, respuesta.derivar, modelo)
+        if respuesta.urgencia:
+            self.sesion.guiar("Lo que describes puede ser serio. Por favor, busca atención médica ahora.", "preocupado")
+        elif respuesta.derivar:
+            self.sesion.guiar("Prefiero que te revise un médico. Ya puedes ver los centros cercanos.", "preocupado")
+        else:
+            self.sesion.guiar("Te respondí en el chat. Cuéntame más si quieres.", "feliz")
         if respuesta.derivar:
             self.sesion.activar_derivacion("CHAT")
 
@@ -135,6 +142,7 @@ class PaginaChat(QWidget):
         if asistente.historial and asistente.historial[-1].rol == "usuario":
             asistente.historial.pop()
         self._agregar("asistente", f"No pude responder: {mensaje}. Intenta de nuevo en un momento.", alerta=True)
+        self.sesion.guiar("No pude conectarme ahora. Inténtalo de nuevo en un momento.", "preocupado")
 
     def _actualizar_espera(self) -> None:
         """Muestra cuántos segundos lleva esperando la respuesta."""

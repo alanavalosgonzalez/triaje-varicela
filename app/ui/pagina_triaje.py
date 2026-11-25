@@ -4,7 +4,7 @@ from datetime import date
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QButtonGroup, QCheckBox, QComboBox, QFormLayout, QHBoxLayout, QLineEdit, QPushButton, QRadioButton,
+    QCheckBox, QComboBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QScrollArea, QSpinBox, QStackedWidget, QVBoxLayout, QWidget,
 )
 
@@ -12,11 +12,34 @@ from app.core.modelos import Paciente
 from app.core.orquestador import evaluar_triaje, guardar_triaje
 from app.db import repositorio
 from app.ui import estilos
+from app.ui.animaciones import aparecer
 from app.ui.comun import Sesion, ejecutar, etiqueta, tarjeta
+from app.ui.cuestionario_widgets import AvisoAlarma, IndicadorPasos, MedidorProbabilidad, TarjetaPregunta
 
 # Síntomas de cada paso del cuestionario (los códigos vienen del catálogo de la base de datos).
 GENERALES = ["fiebre_moderada", "malestar_general", "perdida_apetito", "cefalea"]
 OPCIONES = [("Sí", True), ("No", False), ("No sé", None)]
+
+# Lo que dice Doc en cada paso del cuestionario: (mensaje, emoción).
+GUIA_PASOS = [
+    ("Empecemos con unos datos básicos. Puedes usar un alias, no hace falta tu nombre.", "feliz"),
+    ("¿Cómo te has sentido estos días? La fiebre y el cansancio suelen aparecer antes de la erupción.", "atento"),
+    ("Ahora mira la piel con buena luz. En la varicela conviven manchas, granitos, ampollas y costras.", "atento"),
+    ("Último paso: estos signos son importantes. Si tienes alguno, busca atención médica pronto.", "preocupado"),
+]
+# Comentarios de Doc al marcar «Sí» en síntomas muy característicos: (mensaje, emoción).
+COMENTARIOS_SINTOMA = {
+    "vesiculas": ("Las ampollas con líquido claro son la lesión más típica de la varicela. Buen dato.", "atento"),
+    "lesiones_simultaneas": ("Ver manchas, granitos, ampollas y costras a la vez es una pista muy característica.", "atento"),
+    "inicio_tronco": ("La varicela suele empezar en el tronco, la cara o el cuero cabelludo y luego se extiende.", "atento"),
+}
+# Reacción de Doc a cada dictamen: (mensaje, emoción).
+REACCIONES = {
+    "NEGATIVO_BAJO_RIESGO": ("¡Buenas noticias! No encuentro un patrón de varicela. Si algo cambia, vuelve a revisar.", "celebrando"),
+    "SOSPECHA_INICIAL": ("Hay algunas señales compatibles. Vigila la evolución y consulta si aparecen ampollas o fiebre.", "atento"),
+    "ALTA_PROBABILIDAD": ("Esto se parece bastante a la varicela. Te recomiendo que te valore un médico; ya activé el mapa.", "preocupado"),
+    "DERIVAR_MEDICO": ("Por seguridad, acude con un médico lo antes posible. Te ayudo a encontrar uno cercano.", "preocupado"),
+}
 
 # Nombres legibles de fases y diagnósticos diferenciales que devuelve Prolog.
 FASES = {
@@ -32,34 +55,6 @@ DIFERENCIALES = {
     "impetigo_sobreinfeccion": "impétigo o infección bacteriana",
     "otras_vesiculares": "otras infecciones con ampollas (por ejemplo herpes zóster)",
 }
-
-
-class FilaPregunta(QWidget):
-    """Una pregunta con tres opciones excluyentes: Sí, No y No sé."""
-
-    def __init__(self, texto: str):
-        """Crea la etiqueta y los tres botones de opción."""
-        super().__init__()
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 4, 0, 4)
-        layout.addWidget(etiqueta(texto), 1)
-        self.grupo = QButtonGroup(self)
-        for indice, (nombre, _) in enumerate(OPCIONES):
-            boton = QRadioButton(nombre)
-            self.grupo.addButton(boton, indice)
-            layout.addWidget(boton)
-
-    def valor(self) -> tuple[bool, bool | None]:
-        """Devuelve (respondida, valor) donde valor es True, False o None."""
-        indice = self.grupo.checkedId()
-        return (indice >= 0, OPCIONES[indice][1] if indice >= 0 else None)
-
-    def limpiar(self) -> None:
-        """Quita la selección para empezar un triaje nuevo."""
-        self.grupo.setExclusive(False)
-        for boton in self.grupo.buttons():
-            boton.setChecked(False)
-        self.grupo.setExclusive(True)
 
 
 def combo_si_no() -> QComboBox:
@@ -80,26 +75,29 @@ class PaginaTriaje(QWidget):
         """Construye los cinco pasos del cuestionario."""
         super().__init__()
         self.sesion = sesion
-        self.filas: dict[str, FilaPregunta] = {}
+        self.filas: dict[str, TarjetaPregunta] = {}
         catalogo = repositorio.catalogo_sintomas(sesion.conexion)
 
         raiz = QVBoxLayout(self)
         raiz.setContentsMargins(24, 20, 24, 20)
         raiz.addWidget(etiqueta("Cuestionario de detección temprana", "titulo"))
-        self.indicador = etiqueta("", "nota")
-        raiz.addWidget(self.indicador)
+        self.indicador_pasos = IndicadorPasos(["Datos", "Síntomas generales", "Erupción", "Signos de alarma"])
+        raiz.addWidget(self.indicador_pasos)
+        self.contadores: dict[int, QLabel] = {}
+        self.aviso_alarma = AvisoAlarma()
+        self._paso_anterior = 0
 
         self.pasos = QStackedWidget()
         self.pasos.addWidget(self._paso_datos())
         self.pasos.addWidget(self._paso_sintomas(
-            "Síntomas generales", "¿Ha tenido alguno de estos síntomas en los últimos días?",
+            1, "Síntomas generales", "¿Ha tenido alguno de estos síntomas en los últimos días?",
             [f for f in catalogo if f["codigo"] in GENERALES]))
         self.pasos.addWidget(self._paso_sintomas(
-            "La erupción en la piel", "Observa la piel con buena luz. ¿Qué tipo de lesiones hay?",
+            2, "La erupción en la piel", "Compara con los dibujos: ¿qué tipo de lesiones ves con buena luz?",
             [f for f in catalogo if f["tipo"] != "ALARMA" and f["codigo"] not in GENERALES]))
         self.pasos.addWidget(self._paso_sintomas(
-            "Signos de alarma", "Estos signos requieren atención médica inmediata. ¿Presenta alguno?",
-            [f for f in catalogo if f["tipo"] == "ALARMA"]))
+            3, "Signos de alarma", "Estos signos requieren atención médica inmediata. ¿Presenta alguno?",
+            [f for f in catalogo if f["tipo"] == "ALARMA"], alarma=True))
         self.pasos.addWidget(self._paso_resultado())
         raiz.addWidget(self.pasos, 1)
 
@@ -147,20 +145,34 @@ class PaginaTriaje(QWidget):
         layout.addStretch()
         return marco
 
-    def _paso_sintomas(self, titulo: str, descripcion: str, filas_catalogo) -> QWidget:
-        """Pasos 2 a 4: una fila Sí/No/No sé por síntoma."""
-        marco, layout = tarjeta()
-        layout.addWidget(etiqueta(titulo, "subtitulo"))
-        layout.addWidget(etiqueta(descripcion, "nota"))
+    def _paso_sintomas(self, paso: int, titulo: str, descripcion: str, filas_catalogo, alarma: bool = False) -> QWidget:
+        """Pasos 2 a 4: una tarjeta ilustrada por síntoma, con contador de preguntas respondidas."""
+        contenedor = QWidget()
+        layout = QVBoxLayout(contenedor)
+        layout.setContentsMargins(4, 4, 8, 4)
+        layout.setSpacing(10)
+        cabecera = QHBoxLayout()
+        textos = QVBoxLayout()
+        textos.addWidget(etiqueta(titulo, "subtitulo"))
+        textos.addWidget(etiqueta(descripcion, "nota"))
+        cabecera.addLayout(textos, 1)
+        contador = QLabel()
+        contador.setObjectName("contador")
+        self.contadores[paso] = contador
+        cabecera.addWidget(contador, 0, Qt.AlignBottom)
+        layout.addLayout(cabecera)
+        if alarma:
+            layout.addWidget(self.aviso_alarma)
         for fila in filas_catalogo:
-            pregunta = FilaPregunta(fila["nombre"])
+            pregunta = TarjetaPregunta(fila["codigo"], fila["nombre"], es_alarma=alarma)
+            pregunta.respondida.connect(self._al_responder)
             self.filas[fila["codigo"]] = pregunta
             layout.addWidget(pregunta)
         layout.addStretch()
         desplazable = QScrollArea()
         desplazable.setWidgetResizable(True)
         desplazable.setFrameShape(QScrollArea.NoFrame)
-        desplazable.setWidget(marco)
+        desplazable.setWidget(contenedor)
         return desplazable
 
     def _paso_resultado(self) -> QWidget:
@@ -176,8 +188,13 @@ class PaginaTriaje(QWidget):
         self.boton_nuevo = QPushButton("Nuevo triaje")
         self.boton_nuevo.setObjectName("secundario")
         self.boton_nuevo.clicked.connect(self._reiniciar)
+        self.medidor = MedidorProbabilidad()
         layout.addWidget(self.caja_dictamen)
-        layout.addWidget(self.detalle, 1)
+        cuerpo = QHBoxLayout()
+        cuerpo.setSpacing(20)
+        cuerpo.addWidget(self.medidor, 0, Qt.AlignTop)
+        cuerpo.addWidget(self.detalle, 1)
+        layout.addLayout(cuerpo, 1)
         botones = QHBoxLayout()
         botones.addStretch()
         botones.addWidget(self.boton_nuevo)
@@ -196,12 +213,18 @@ class PaginaTriaje(QWidget):
         """Ajusta botones e indicador según el paso actual."""
         paso = self.pasos.currentIndex()
         ultimo_pregunta = self.pasos.count() - 2
-        self.indicador.setText(f"Paso {min(paso + 1, ultimo_pregunta + 1)} de {ultimo_pregunta + 1}"
-                               if paso <= ultimo_pregunta else "Resultado")
         self.boton_anterior.setVisible(0 < paso <= ultimo_pregunta)
         self.boton_siguiente.setVisible(paso <= ultimo_pregunta)
         self.boton_siguiente.setText("Evaluar" if paso == ultimo_pregunta else "Siguiente")
         self.mensaje.setText("")
+        self.indicador_pasos.ir_a(paso)
+        self._actualizar_contadores()
+        # El paso nuevo entra deslizándose desde el lado hacia el que se avanza.
+        if paso != self._paso_anterior:
+            aparecer(self.pasos.currentWidget(), duracion=320, horizontal=40 if paso > self._paso_anterior else -40)
+        self._paso_anterior = paso
+        if paso < len(GUIA_PASOS) and self.isVisible():
+            self.sesion.guiar(*GUIA_PASOS[paso])
 
     def _anterior(self) -> None:
         """Vuelve al paso anterior."""
@@ -213,13 +236,35 @@ class PaginaTriaje(QWidget):
         paso = self.pasos.currentIndex()
         sin_responder = [c for c in self._codigos_del_paso(paso) if not self.filas[c].valor()[0]]
         if sin_responder:
-            self.mensaje.setText("Responde todas las preguntas (puedes elegir «No sé»).")
+            self.mensaje.setText(f"Faltan {len(sin_responder)} preguntas por responder (puedes elegir «No sé»).")
+            for codigo in sin_responder:
+                self.filas[codigo].resaltar_pendiente()
+            self.pasos.currentWidget().ensureWidgetVisible(self.filas[sin_responder[0]])
             return
         if paso == self.pasos.count() - 2:
             self._evaluar()
             return
         self.pasos.setCurrentIndex(paso + 1)
         self._actualizar_navegacion()
+
+    def _actualizar_contadores(self) -> None:
+        """Muestra cuántas preguntas lleva respondidas cada paso."""
+        for paso, etiqueta_contador in self.contadores.items():
+            codigos = self._codigos_del_paso(paso)
+            hechas = sum(self.filas[c].valor()[0] for c in codigos)
+            etiqueta_contador.setText(f"{hechas} de {len(codigos)} respondidas")
+
+    def _al_responder(self, codigo: str, valor) -> None:
+        """Actualiza el contador, muestra el aviso si hay un signo de alarma y deja que Doc comente."""
+        self.mensaje.setText("")
+        self._actualizar_contadores()
+        if self.filas[codigo].es_alarma:
+            alguna = any(f.valor()[1] is True for f in self.filas.values() if f.es_alarma)
+            self.aviso_alarma.mostrar(alguna)
+            if valor is True:
+                self.sesion.guiar("Ese es un signo de alarma. No esperes: busca atención médica lo antes posible.", "preocupado")
+        elif valor is True and codigo in COMENTARIOS_SINTOMA:
+            self.sesion.guiar(*COMENTARIOS_SINTOMA[codigo])
 
     # ---------------------------------------------------------------- Evaluación.
 
@@ -238,12 +283,14 @@ class PaginaTriaje(QWidget):
         self.contacto = self.campo_contacto.currentData()
         self.boton_siguiente.setEnabled(False)
         self.mensaje.setText("Analizando con el motor lógico (Prolog) y el estadístico (R)…")
+        self.sesion.guiar("Dame un momento: estoy revisando tus respuestas con mis dos motores de análisis…", "pensando")
         ejecutar(evaluar_triaje, self._mostrar_resultado, self._mostrar_error, self.paciente, self.respuestas, self.contacto)
 
     def _mostrar_error(self, mensaje: str) -> None:
         """Informa del fallo sin perder las respuestas."""
         self.boton_siguiente.setEnabled(True)
         self.mensaje.setText(f"No se pudo completar el análisis: {mensaje}")
+        self.sesion.guiar("Ups, no pude terminar el análisis. Revisa el mensaje de abajo e inténtalo de nuevo.", "preocupado")
 
     def _mostrar_resultado(self, resultado) -> None:
         """Guarda el resultado en la base (hilo principal) y lo muestra."""
@@ -268,6 +315,9 @@ class PaginaTriaje(QWidget):
         self.boton_mapa.setVisible(resultado.habilitar_mapa)
         self.pasos.setCurrentIndex(self.pasos.count() - 1)
         self._actualizar_navegacion()
+        aparecer(self.caja_dictamen, duracion=500, desplazamiento=16)
+        self.medidor.mostrar(resultado.r.probabilidad)
+        self.sesion.guiar(*REACCIONES[resultado.dictamen_final])
         self.sesion.triaje_completado.emit(resultado)
         if resultado.habilitar_mapa:
             self.sesion.activar_derivacion("TRIAJE")
@@ -282,6 +332,7 @@ class PaginaTriaje(QWidget):
             combo.setCurrentIndex(2)
         self.campo_embarazo.setChecked(False)
         self.campo_inmuno.setChecked(False)
+        self.aviso_alarma.mostrar(False)
         self.sesion.paciente = None
         self.sesion.consulta_id = None
         self.pasos.setCurrentIndex(0)

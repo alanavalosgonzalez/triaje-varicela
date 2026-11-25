@@ -65,6 +65,7 @@ class Sesion(QObject):
 
     derivacion = Signal(str)                 # Origen: TRIAJE, CHAT o IMAGEN.
     triaje_completado = Signal(object)       # ResultadoTriaje.
+    guia = Signal(str, str, object)          # Mensaje para el asistente animado: texto, emoción y consejos opcionales.
 
     def __init__(self):
         """Abre la base de datos local."""
@@ -85,6 +86,10 @@ class Sesion(QObject):
             self.consulta_id = repositorio.crear_consulta(self.conexion, self.paciente.id, None)
         return self.consulta_id
 
+    def guiar(self, texto: str, emocion: str = "feliz", consejos: list[str] | None = None) -> None:
+        """Pide al asistente animado (Doc) que muestre un mensaje con una expresión."""
+        self.guia.emit(texto, emocion, consejos)
+
     def activar_derivacion(self, origen: str) -> None:
         """Registra que un módulo detectó sospecha alta o necesidad de atención y avisa a la ventana."""
         if self.origen_derivacion is None:
@@ -94,10 +99,13 @@ class Sesion(QObject):
 
 def tarjeta() -> tuple[QFrame, QVBoxLayout]:
     """Crea un recuadro blanco con borde suave y devuelve el marco y su layout."""
+    from app.ui.animaciones import sombra  # Importación local para evitar dependencias circulares.
+
     marco = QFrame()
     marco.setObjectName("tarjeta")
+    sombra(marco)
     layout = QVBoxLayout(marco)
-    layout.setContentsMargins(16, 14, 16, 14)
+    layout.setContentsMargins(20, 18, 20, 18)
     return marco, layout
 
 
